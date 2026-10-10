@@ -1,9 +1,16 @@
 name: Release
 
-# Push a version tag to release, e.g.:  npm version patch && git push --follow-tags
+# Every push to main ships a new version, so "Check for updates" in the browser always sees the
+# latest code. Version = <major>.<minor> from package.json + the workflow run number as patch.
 on:
   push:
-    tags: ['v*']
+    branches: [main]
+    paths-ignore: ['**.md', 'docs/**', 'LICENSE', '.github/dependabot.yml']
+  workflow_dispatch:
+
+concurrency:
+  group: release
+  cancel-in-progress: false
 
 permissions:
   contents: write
@@ -11,12 +18,19 @@ permissions:
 jobs:
   draft:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
+      - id: version
+        name: Compute version
+        run: echo "version=$(node -p "require('./package.json').version.split('.').slice(0, 2).join('.')").${{ github.run_number }}" >> "$GITHUB_OUTPUT"
       - name: Create draft release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release create "$GITHUB_REF_NAME" --draft --generate-notes --title "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY"
+        run: |
+          gh release create "v${{ steps.version.outputs.version }}" --draft --target "$GITHUB_SHA" \
+            --title "v${{ steps.version.outputs.version }}" --generate-notes --repo "$GITHUB_REPOSITORY"
 
   build:
     needs: draft
@@ -32,13 +46,13 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Check tag matches package.json version
-        shell: bash
-        run: test "v$(node -p "require('./package.json').version")" = "$GITHUB_REF_NAME"
+      - name: Set version
+        run: npm version "${{ needs.draft.outputs.version }}" --no-git-tag-version --allow-same-version
+      - run: npm run typecheck
       - run: npm run build
       - name: Bundle ad/tracker filter lists
         run: npm run filters
-      - name: Build and upload to the draft release
+      - name: Build installers and upload to the draft release
         run: npx electron-builder --publish always
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -46,10 +60,10 @@ jobs:
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
   publish:
-    needs: build
+    needs: [draft, build]
     runs-on: ubuntu-latest
     steps:
-      - name: Publish the release (makes it visible to the in-app updater)
+      - name: Publish the release (makes it visible to "Check for updates")
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release edit "$GITHUB_REF_NAME" --draft=false --latest --repo "$GITHUB_REPOSITORY"
+        run: gh release edit "v${{ needs.draft.outputs.version }}" --draft=false --latest --repo "$GITHUB_REPOSITORY"
