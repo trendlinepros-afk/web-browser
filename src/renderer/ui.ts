@@ -20,6 +20,7 @@ const ICONS = {
   close: '<svg viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>',
   audio:
     '<svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05A4.47 4.47 0 0 0 16.5 12M14 3.23v2.06a7 7 0 0 1 0 13.42v2.06A9 9 0 0 0 14 3.23"/></svg>',
+  shield: '<svg viewBox="0 0 24 24"><path d="M12 2 4 5v6.09c0 5.05 3.41 9.76 8 10.91 4.59-1.15 8-5.86 8-10.91V5zm0 2.18 6 2.25v4.66c0 4-2.55 7.7-6 8.83-3.45-1.13-6-4.82-6-8.83V6.43z"/><path d="M12 6.5 8 8v3.2c0 2.7 1.7 5.2 4 6.05z"/></svg>',
   muted:
     '<svg viewBox="0 0 24 24"><path d="M16.5 12A4.5 4.5 0 0 0 14 7.97v2.21l2.45 2.45q.05-.3.05-.63m2.5 0q0 1.41-.54 2.64l1.51 1.51A8.8 8.8 0 0 0 21 12a9 9 0 0 0-7-8.77v2.06A7 7 0 0 1 19 12M4.27 3 3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a9 9 0 0 0 3.69-1.81L19.73 21 21 19.73l-9-9zM12 4 9.91 6.09 12 8.18z"/></svg>',
 }
@@ -35,6 +36,7 @@ const reloadBtn = $<HTMLButtonElement>('reload')
 const menuBtn = $<HTMLButtonElement>('menu')
 const newTabBtn = $<HTMLButtonElement>('new-tab')
 const mcpBadge = $<HTMLSpanElement>('mcp-badge')
+const shieldBtn = $<HTMLButtonElement>('shield')
 const extensionsEl = $<HTMLDivElement>('extensions')
 
 backBtn.innerHTML = ICONS.back
@@ -134,7 +136,21 @@ function render(): void {
   reloadBtn.title = tab?.loading ? 'Stop loading' : 'Reload (Ctrl+R)'
   if (!editing) address.value = displayURL(tab?.url ?? '')
   mcpBadge.hidden = !state.mcpEnabled
+  renderShield(tab)
   renderExtensions(state.extensionPartition)
+}
+
+let shieldKey = ''
+function renderShield(tab: TabInfo | undefined): void {
+  const web = !!tab && /^https?:/.test(tab.url)
+  const key = `${web}|${tab?.blockingActive}|${tab?.blocked}`
+  if (key === shieldKey) return
+  shieldKey = key
+  shieldBtn.hidden = !web
+  if (!tab || !web) return
+  shieldBtn.classList.toggle('off', !tab.blockingActive)
+  shieldBtn.innerHTML = ICONS.shield + (tab.blockingActive && tab.blocked > 0 ? `<span class="count">${tab.blocked > 99 ? '99+' : tab.blocked}</span>` : '')
+  shieldBtn.title = tab.blockingActive ? `${tab.blocked} ads & trackers blocked on this page` : 'Blocking is off for this site'
 }
 
 function displayURL(url: string): string {
@@ -183,6 +199,10 @@ reloadBtn.onclick = () => {
   if (!tab) return
   if (tab.loading) api.stop(tab.id)
   else api.reload(tab.id)
+}
+shieldBtn.onclick = () => {
+  const r = shieldBtn.getBoundingClientRect()
+  api.showShieldMenu(r.left, r.bottom)
 }
 menuBtn.onclick = () => {
   const r = menuBtn.getBoundingClientRect()

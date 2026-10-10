@@ -202,6 +202,7 @@ export class BrowserWindowController {
   onTabViewCreated(tab: Tab, view: WebContentsView): void {
     view.setVisible(false)
     this.win.contentView.addChildView(view)
+    this.browser.registerTabWebContents(tab, view.webContents)
     if (!this.incognito) this.browser.extensions?.addTab(view.webContents, this.win)
     this.browser.mcpTabsChanged()
     if (this.activeTab === tab) this.showActiveView()

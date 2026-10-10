@@ -295,6 +295,29 @@ button {
   margin: 0 4px;
 }
 
+#shield {
+  position: relative;
+  color: var(--accent);
+}
+#shield.off {
+  color: var(--fg-muted);
+}
+#shield .count {
+  position: absolute;
+  right: -2px;
+  bottom: 1px;
+  min-width: 14px;
+  height: 13px;
+  padding: 0 3px;
+  border-radius: 7px;
+  background: var(--accent);
+  color: var(--bg-toolbar);
+  font-size: 9px;
+  font-weight: 700;
+  line-height: 13px;
+  text-align: center;
+}
+
 #extensions {
   display: flex;
   align-items: center;

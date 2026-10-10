@@ -42,6 +42,8 @@ export class Tab {
   lastActiveAt = Date.now()
   /** Last time Claude (MCP) interacted with this tab. */
   lastControlledAt = 0
+  /** Ads/trackers blocked since the current page started loading. */
+  blockedCount = 0
 
   private savedHistory: { entries: NavigationEntry[]; index: number } | null = null
 
@@ -162,6 +164,8 @@ export class Tab {
         ? wc.navigationHistory.canGoForward()
         : !!this.savedHistory && this.savedHistory.index < this.savedHistory.entries.length - 1,
       controlled: this.controlled,
+      blocked: this.blockedCount,
+      blockingActive: !!this.url && this.window.browser.blocker.activeFor(this.url),
     }
   }
 
@@ -203,6 +207,8 @@ export class Tab {
     this.crashed = false
     const wc = view.webContents
     wc.setAudioMuted(this.muted)
+    // WebRTC (video calls) still works, but pages can't read your local network IP addresses.
+    wc.setWebRTCIPHandlingPolicy('default_public_interface_only')
     this.wireEvents(wc)
     attachContextMenu(this, wc)
     this.window.onTabViewCreated(this, view)
@@ -219,6 +225,9 @@ export class Tab {
     wc.on('page-favicon-updated', (_e, favicons) => {
       this.favicon = favicons[0] ?? null
       changed()
+    })
+    wc.on('did-start-navigation', (details) => {
+      if (details.isMainFrame && !details.isSameDocument) this.blockedCount = 0
     })
     wc.on('did-start-loading', changed)
     wc.on('did-stop-loading', changed)

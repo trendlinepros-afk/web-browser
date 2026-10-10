@@ -12,6 +12,18 @@ export interface Settings {
   sleepPinnedTabs: boolean
   restoreSession: boolean
   checkForUpdatesOnStartup: boolean
+  blocking: {
+    /** Block ads, trackers and known malware/scam domains. */
+    enabled: boolean
+    /** Also hide cookie-consent banners. */
+    cookieBanners: boolean
+    /** Sites (registrable domains, e.g. "example.com") where blocking is turned off. */
+    allowlist: string[]
+  }
+  privacy: {
+    /** Send the Global Privacy Control signal (Sec-GPC: 1), a legal "do not sell/share" request in some regions. */
+    globalPrivacyControl: boolean
+  }
   mcp: {
     enabled: boolean
     port: number
@@ -29,6 +41,14 @@ const DEFAULTS: Settings = {
   sleepPinnedTabs: false,
   restoreSession: true,
   checkForUpdatesOnStartup: true,
+  blocking: {
+    enabled: true,
+    cookieBanners: true,
+    allowlist: [],
+  },
+  privacy: {
+    globalPrivacyControl: true,
+  },
   mcp: {
     enabled: false,
     port: 47823,
@@ -53,7 +73,13 @@ export function getSettings(): Settings {
   } catch {
     // First run or unreadable file: fall back to defaults.
   }
-  cached = { ...DEFAULTS, ...stored, mcp: { ...DEFAULTS.mcp, ...(stored.mcp ?? {}) } }
+  cached = {
+    ...DEFAULTS,
+    ...stored,
+    blocking: { ...DEFAULTS.blocking, ...(stored.blocking ?? {}) },
+    privacy: { ...DEFAULTS.privacy, ...(stored.privacy ?? {}) },
+    mcp: { ...DEFAULTS.mcp, ...(stored.mcp ?? {}) },
+  }
   return cached
 }
 

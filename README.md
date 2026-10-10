@@ -3,6 +3,8 @@
 A fast, lightweight desktop browser built on Chromium (via Electron) with:
 
 - **Chrome extensions**, including LastPass, installed straight from the Chrome Web Store
+- **Built-in ad, tracker and cookie-banner blocking**, with no Manifest V3 limits
+- **No Google tracking**: no account sign-in, sync or usage reporting, and Chrome's Privacy Sandbox ad APIs are switched off
 - **Tab sleeping**: hidden tabs release their memory automatically and wake when you click them
 - **Incognito windows** that keep nothing on disk and don't share cookies with anything else
 - **A built-in MCP server** so Claude can drive the browser (off by default)
@@ -43,6 +45,12 @@ Your tabs come back after the restart. The browser also checks quietly on startu
 ### LastPass and other extensions
 Menu → **Extensions → Install LastPass** (or **Get extensions** for the whole Chrome Web Store), then click
 **Add to Chrome**. Extension buttons show up in the toolbar. Extensions update automatically.
+
+### Ads, trackers and privacy
+The shield button next to the address bar shows how many ads and trackers were blocked on the current page.
+Click it to turn blocking off for a site that misbehaves, turn cookie-banner hiding on or off, or refresh the
+filter lists (this also happens automatically every day). The browser sends the Global Privacy Control signal
+(a legal "do not sell or share my data" request in some places), which you can turn off in the same menu.
 
 ### Saving memory
 Tabs you haven't looked at for 15 minutes go to sleep: they show dimmed and use no memory until you click them.

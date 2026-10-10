@@ -20,6 +20,7 @@ const api: UiApi = {
   toggleMute: (id) => send('toggleMute', id),
   showAppMenu: (x, y) => send('showAppMenu', x, y),
   showTabMenu: (id) => send('showTabMenu', id),
+  showShieldMenu: (x, y) => send('showShieldMenu', x, y),
   onState: (cb) => {
     ipcRenderer.on('ui:state', (_e, state: WindowState) => cb(state))
   },

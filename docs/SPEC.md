@@ -1,6 +1,6 @@
 # Web Browser — Product & Technical Spec
 
-Status: **Stage 1 (Foundation) in progress** · Last updated 2026-10-10
+Status: **Stage 1 (Foundation) + Stage 1.5 (Privacy & blocking) done; LastPass gate pending** · Last updated 2026-10-10
 
 ## 1. What we're building
 
@@ -11,6 +11,7 @@ A fast, low-overhead desktop browser that:
 3. **Can be driven by Claude** through a built-in MCP server.
 4. **Has a real incognito mode.** It keeps nothing on disk and doesn't share cookies with normal windows.
 5. **Updates itself** from GitHub Releases, with a "Check for updates" button.
+6. **Fixes what's wrong with Chrome** while keeping Chrome's site compatibility (§2a).
 
 Non-goals for now: our own rendering engine, sync servers, a mobile version, and a custom extension store.
 
@@ -33,6 +34,22 @@ That is normal, expected work and doesn't call for a new engine.
 
 **Licensing:** `electron-chrome-extensions` is dual-licensed as GPL-3.0 or a paid patron license. Because this
 repo is public, we use **GPL-3.0** for the whole app. The license is free, but anyone who forks the code must keep it open source.
+
+## 2a. Chromium without Chrome's problems
+
+We use Chromium, the open-source engine, not Chrome, Google's product built on it. Most of what people
+dislike about Chrome lives in the product layer, which this browser replaces. How each problem is handled:
+
+| Chrome problem | Our answer | Status |
+|---|---|---|
+| **Google tracking:** account sign-in, sync, usage stats, Safe Browsing lookups, `X-Client-Data` header | None of that code exists in Electron. A network audit of an idle session showed no calls to Google. One exception: on **Linux** only, the spellchecker downloads its dictionary file from Google's CDN once. Windows and Mac use the OS spellchecker | ✅ |
+| **Privacy Sandbox ad APIs:** Topics, FLEDGE / Protected Audience ad auctions, Shared Storage, Attribution Reporting, Fenced Frames | Disabled with Chromium feature switches; verified absent from pages (`privacy.ts`) | ✅ |
+| **Ads and trackers** (Chrome's Manifest V3 limits extension blockers) | Built-in blocker using Ghostery's engine with uBlock Origin, EasyList, EasyPrivacy, Peter Lowe and uBlock "badware" lists. It runs inside the browser, so MV3 limits don't apply. Also hides cookie banners. A shield button shows the count and turns blocking off per site. Lists refresh every 24 h, and a snapshot ships in every release so blocking works on first launch, offline included | ✅ |
+| **Fingerprinting signals** | Chromium-consistent client hints (`Sec-CH-UA*`, `navigator.userAgentData`); WebRTC can't expose local IP addresses; Global Privacy Control (`Sec-GPC: 1`) sent by default | ✅ |
+| **Memory hog** | Tab sleeping, memory-pressure sleeping, lazy restore, one process per *site* (not per tab), lazy-loaded subsystems (§4) | ✅ |
+| **Google steers web standards** | Can't be fixed on Chromium (or by any single browser). Mitigations: we switch off Google-specific features as they ship, and the tab layer stays engine-agnostic (`Tab` wraps the engine) so a different engine can be adopted later if one becomes viable | ⚠️ mitigated |
+| **Security depends on Google's patches** | It's a strength, provided we ship them fast. Dependabot opens a PR for every Electron release (daily check). Electron ships Chromium security fixes within days of Chrome | ✅ process in place |
+| **No Safe Browsing** (by design, it phones Google) | Partly covered by uBlock's badware/malware list blocking known-bad resources. A full-page "dangerous site" warning is on the Stage 3 roadmap | ⚠️ partial |
 
 ## 3. Architecture
 
@@ -58,6 +75,10 @@ Main process (src/main)
   settings.ts     JSON settings at <userData>/settings.json
   menu.ts         App menu + keyboard shortcuts
   context-menu.ts Page right-click menu, including extension items
+  blocker.ts      Ad/tracker/malware blocking + cosmetic filtering, per-site allowlist
+  filter-worker.ts  Utility process that compiles filter lists (keeps parsing off the main thread)
+  privacy.ts      Chromium hardening switches; owns all webRequest hooks; client hints, GPC
+preload/page-preload.ts  Per-page: userAgentData brands and navigator.globalPrivacyControl
 ```
 
 Principles:
@@ -73,7 +94,8 @@ These are targets. We measure against them at the end of each stage.
 |---|---|
 | Cold start to usable window | < 1.0 s (warm OS cache) |
 | New tab to address bar focused | < 50 ms |
-| Idle browser, 1 blank tab | < 350 MB total PSS (measured **318 MB** on Linux, Stage 1) |
+| Idle browser, 1 blank tab | < 350 MB total PSS (measured **~320 MB** on Linux incl. the blocker's ~17 MB) |
+| 4 tabs on one site | 1 page process, not 4 (measured) |
 | 30 tabs restored at startup | Only the active tab loads. The rest cost ~0 MB until clicked |
 | Background tab after sleep | Renderer process freed (0 MB) |
 
@@ -166,6 +188,14 @@ history, lazy session restore across restarts, and incognito cookie/storage isol
 - [x] Check-for-updates button + background check
 - [ ] **LastPass validation gate** (§9). Run by hand on a real machine
 
+### Stage 1.5: Privacy & blocking (done)
+- [x] Built-in ad, tracker, malware and cookie-banner blocking with per-site toggle and blocked count
+- [x] Filter lists: 24 h background refresh in a utility process, release-time snapshot for first run
+- [x] Privacy Sandbox ad APIs disabled (verified)
+- [x] Client hints and `navigator.userAgentData` consistent with the user agent; GPC on by default
+- [x] WebRTC local-IP protection; one process per site
+- [x] Dependabot for Electron (Chromium) security releases
+
 ### Stage 2: UI & everyday features
 - Visual design pass: compact tab strip, light and dark themes, smooth tab animations
 - Find in page (Ctrl+F), zoom per site, print, reopen closed tab, tab drag-reorder
@@ -176,7 +206,8 @@ history, lazy session restore across restarts, and incognito cookie/storage isol
 - Show sleeping tabs dimmed, with a "sleep this tab now" action
 
 ### Stage 3: Power & polish
-- Built-in ad and tracker blocking (a fast list-based engine; large speed win on heavy sites)
+- "Dangerous site" interstitial for top-level navigations to known malware/phishing domains
+- Optional third-party cookie blocking
 - Task manager (per-tab and per-extension memory and CPU)
 - Vertical tabs option, tab groups, split view
 - Import bookmarks and passwords from Chrome
@@ -193,6 +224,10 @@ To run on a real desktop (this needs your LastPass account, so it can't be autom
 5. Save a new site: the "Add to LastPass" prompt appears.
 6. Right-click a field: the LastPass context menu items appear.
 7. Restart the browser: you're still logged in and the extension reloads.
+8. Visit a site using an HTTP login prompt (browser-native username/password dialog): note whether LastPass offers to fill it.
+   Electron doesn't currently deliver `chrome.webRequest` events to MV3 service workers (verified with a test
+   extension, independent of our own network hooks). If LastPass relies on them, this is the feature that would be missing.
+9. With the shield on, check LastPass still logs in and syncs. Requests made by extensions are never blocked by design.
 
 Log any failure as a GitHub issue labelled `lastpass`. We fix gaps in `extensions.ts`.
 
@@ -206,3 +241,7 @@ and `runtime` messaging all work.
 - Permissions (camera, mic, location, notifications, MIDI…) prompt per site. Answers are remembered for the session.
 - MCP is localhost-only, off by default, needs a bearer token, keeps `evaluate` off by default, and can't see incognito tabs.
 - Updates download over HTTPS from GitHub Releases. `electron-updater` checks the SHA-512 from `latest.yml`.
+- Chromium security fixes arrive through Electron releases. Dependabot raises them daily; releasing promptly is the
+  most important ongoing security task.
+- Ad blocking never touches requests made by extensions, so password managers keep working, or top-level
+  navigations, so you can always open the page you asked for.

@@ -6,6 +6,7 @@ import { BrowserMcpServer } from './mcp-server'
 import type { TabSleeper } from './tab-sleeper'
 import { getSettings, updateSettings } from './settings'
 import { checkForUpdates } from './updater'
+import { AdBlocker } from './blocker'
 import { CHROME_WEB_STORE_URL, LASTPASS_URL, updateAllExtensions } from './extensions'
 
 const REPO_URL = 'https://github.com/trendlinepros-afk/web-browser'
@@ -34,6 +35,7 @@ export class Menus {
   ) {
     browser.onShowAppMenu = (w, x, y) => this.showAppMenu(w, x, y)
     browser.onShowTabMenu = (w, tab) => this.showTabMenu(w, tab)
+    browser.onShowShieldMenu = (w, x, y) => this.showShieldMenu(w, x, y)
   }
 
   private current(): BrowserWindowController | undefined {
@@ -288,6 +290,76 @@ export class Menus {
       { label: `About (v${app.getVersion()})`, click: () => shell.openExternal(REPO_URL) },
       { type: 'separator' },
       { label: 'Quit', accelerator: 'CmdOrCtrl+Q', click: () => app.quit() },
+    ]
+    Menu.buildFromTemplate(template).popup({ window: w.win, x: Math.round(x), y: Math.round(y) })
+  }
+
+  /** The shield button: per-site and global ad/tracker blocking controls. */
+  showShieldMenu(w: BrowserWindowController, x: number, y: number): void {
+    const tab = w.activeTab
+    if (!tab) return
+    const blocker = this.browser.blocker
+    const s = getSettings()
+    const site = AdBlocker.siteOf(tab.url)
+    const updated = blocker.lastUpdated
+    const refreshAll = () => {
+      for (const win of this.browser.windows.values()) win.pushState()
+    }
+    const template: MenuItemConstructorOptions[] = [
+      {
+        label: !s.blocking.enabled
+          ? 'Ad & tracker blocking is off'
+          : !blocker.ready
+            ? 'Downloading filter lists…'
+            : `${tab.blockedCount} ads & trackers blocked on this page`,
+        enabled: false,
+      },
+      { type: 'separator' },
+      {
+        label: site ? `Block on ${site}` : 'Block on this site',
+        type: 'checkbox',
+        enabled: !!site && s.blocking.enabled,
+        checked: !!site && !s.blocking.allowlist.includes(site),
+        click: (item) => {
+          blocker.setSiteAllowed(tab.url, !item.checked)
+          tab.wake().reload()
+          refreshAll()
+        },
+      },
+      { type: 'separator' },
+      {
+        label: 'Block ads & trackers on all sites',
+        type: 'checkbox',
+        checked: s.blocking.enabled,
+        click: (item) => {
+          updateSettings((x) => (x.blocking.enabled = item.checked))
+          refreshAll()
+        },
+      },
+      {
+        label: 'Hide cookie banners',
+        type: 'checkbox',
+        checked: s.blocking.cookieBanners,
+        click: (item) => {
+          updateSettings((x) => (x.blocking.cookieBanners = item.checked))
+          blocker.refresh().catch((err) => dialog.showErrorBox('Filter list update failed', String(err)))
+        },
+      },
+      {
+        label: 'Send “Do Not Sell or Share” signal (GPC)',
+        type: 'checkbox',
+        checked: s.privacy.globalPrivacyControl,
+        click: (item) => updateSettings((x) => (x.privacy.globalPrivacyControl = item.checked)),
+      },
+      { type: 'separator' },
+      {
+        label: updated ? `Update filter lists (last: ${new Date(updated).toLocaleDateString()})` : 'Update filter lists',
+        click: () =>
+          blocker
+            .refresh()
+            .then(refreshAll)
+            .catch((err) => dialog.showErrorBox('Filter list update failed', String(err))),
+      },
     ]
     Menu.buildFromTemplate(template).popup({ window: w.win, x: Math.round(x), y: Math.round(y) })
   }

@@ -1,0 +1,28 @@
+# Electron ships Chromium security fixes in its patch releases; picking them up quickly is the
+# single most important security task for this browser. Dependabot opens a PR for each one.
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: daily
+    allow:
+      - dependency-name: electron
+    labels: [security, electron]
+    open-pull-requests-limit: 3
+
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    ignore:
+      - dependency-name: electron
+    groups:
+      dependencies:
+        patterns: ['*']
+    open-pull-requests-limit: 2
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

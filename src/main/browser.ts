@@ -7,6 +7,8 @@ import type { SavedTab, Tab } from './tab'
 import { getSettings } from './settings'
 import { configureSession } from './permissions'
 import { toNavigableURL } from './url'
+import { AdBlocker } from './blocker'
+import { configureNetwork } from './privacy'
 
 interface SavedSession {
   version: 1
@@ -17,6 +19,8 @@ interface SavedSession {
 export class Browser {
   readonly profilePartition = 'persist:default'
   readonly profile: Session
+  readonly blocker = new AdBlocker()
+  private tabsByWebContents = new WeakMap<WebContents, Tab>()
   extensions: ElectronChromeExtensions | null = null
   windows = new Map<number, BrowserWindowController>()
   lastFocused: BrowserWindowController | null = null
@@ -33,6 +37,13 @@ export class Browser {
   constructor() {
     this.profile = session.fromPartition(this.profilePartition)
     configureSession(this.profile, this)
+    configureNetwork(this.profile, this.blocker)
+    this.blocker.onBlocked = (wc) => {
+      const tab = this.tabsByWebContents.get(wc)
+      if (!tab) return
+      tab.blockedCount++
+      if (tab.window.activeTab === tab) tab.window.pushState()
+    }
     this.registerIpc()
   }
 
@@ -45,6 +56,7 @@ export class Browser {
       // A fresh in-memory partition per incognito window: nothing touches disk or other windows.
       ses = session.fromPartition(`incognito-${++this.incognitoCounter}-${Date.now()}`, { cache: false })
       configureSession(ses, this)
+      configureNetwork(ses, this.blocker)
     }
     if (!incognito) this.sessionFrozen = false
     const controller = new BrowserWindowController(this, { incognito, session: ses, url: opts.url, restore: opts.restore })
@@ -105,7 +117,11 @@ export class Browser {
   }
 
   findTabByWebContents(wc: WebContents): Tab | undefined {
-    return this.allTabs().find((t) => t.webContents === wc)
+    return this.tabsByWebContents.get(wc)
+  }
+
+  registerTabWebContents(tab: Tab, wc: WebContents): void {
+    this.tabsByWebContents.set(wc, tab)
   }
 
   rememberClosedTab(window: BrowserWindowController, tab: Tab): void {
@@ -226,10 +242,13 @@ export class Browser {
           return this.onShowAppMenu?.(w, Number(args[0]), Number(args[1]))
         case 'showTabMenu':
           return tab && this.onShowTabMenu?.(w, tab)
+        case 'showShieldMenu':
+          return this.onShowShieldMenu?.(w, Number(args[0]), Number(args[1]))
       }
     })
   }
 
   onShowAppMenu: ((w: BrowserWindowController, x: number, y: number) => void) | null = null
   onShowTabMenu: ((w: BrowserWindowController, tab: Tab) => void) | null = null
+  onShowShieldMenu: ((w: BrowserWindowController, x: number, y: number) => void) | null = null
 }

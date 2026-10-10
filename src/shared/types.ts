@@ -14,6 +14,10 @@ export interface TabInfo {
   canGoForward: boolean
   /** True while Claude (via MCP) has recently driven this tab. */
   controlled: boolean
+  /** Ads/trackers blocked on the current page. */
+  blocked: number
+  /** Whether ad/tracker blocking applies to this page (off for allowlisted sites). */
+  blockingActive: boolean
 }
 
 export interface WindowState {
@@ -49,6 +53,7 @@ export interface UiApi {
   toggleMute(tabId: number): void
   showAppMenu(x: number, y: number): void
   showTabMenu(tabId: number): void
+  showShieldMenu(x: number, y: number): void
   onState(cb: (state: WindowState) => void): void
   onFocusAddressBar(cb: () => void): void
   ready(): void

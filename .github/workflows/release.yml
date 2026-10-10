@@ -36,6 +36,8 @@ jobs:
         shell: bash
         run: test "v$(node -p "require('./package.json').version")" = "$GITHUB_REF_NAME"
       - run: npm run build
+      - name: Bundle ad/tracker filter lists
+        run: npm run filters
       - name: Build and upload to the draft release
         run: npx electron-builder --publish always
         env:

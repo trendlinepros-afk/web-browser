@@ -6,11 +6,11 @@ import { BrowserMcpServer } from './mcp-server'
 import { Menus } from './menu'
 import { checkForUpdates } from './updater'
 import { flushSettings, getSettings } from './settings'
+import { applyCommandLineHardening } from './privacy'
 
 // ---- Process-wide tuning (must run before 'ready') ------------------------
 
-// Features a desktop browser shell doesn't use; each costs memory or background work.
-app.commandLine.appendSwitch('disable-features', 'MediaRouter,DialMediaRouteProvider')
+applyCommandLineHardening()
 
 /**
  * Present a plain Chrome user agent. Electron's default ("… Electron/x AppName/y …") gets
@@ -65,6 +65,8 @@ function main(): void {
     } catch (err) {
       console.error('Extension support failed to initialise:', err)
     }
+
+    browser.blocker.start().catch((err) => console.error('Ad blocker failed to start:', err))
 
     sleeper = new TabSleeper(browser)
     mcp = new BrowserMcpServer(browser)
