@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      http-equiv="Content-Security-Policy"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: http: https: crx:"
+    />
+    <link rel="stylesheet" href="styles.css" />
+    <title>Web Browser</title>
+  </head>
+  <body>
+    <div id="tabstrip">
+      <div id="tabs" role="tablist"></div>
+      <button id="new-tab" class="icon-btn" title="New tab (Ctrl+T)" aria-label="New tab"></button>
+    </div>
+    <div id="toolbar">
+      <button id="back" class="icon-btn" title="Back (Alt+Left)" aria-label="Back"></button>
+      <button id="forward" class="icon-btn" title="Forward (Alt+Right)" aria-label="Forward"></button>
+      <button id="reload" class="icon-btn" title="Reload (Ctrl+R)" aria-label="Reload"></button>
+      <form id="address-form" autocomplete="off">
+        <span id="incognito-badge" hidden>Incognito</span>
+        <input id="address" type="text" spellcheck="false" placeholder="Search or enter address" aria-label="Address and search bar" />
+      </form>
+      <div id="extensions"></div>
+      <span id="mcp-badge" hidden title="Claude can control this browser (MCP server is on)">Claude</span>
+      <button id="menu" class="icon-btn" title="Menu" aria-label="Menu"></button>
+    </div>
+    <script type="module" src="ui.js"></script>
+  </body>
+</html>

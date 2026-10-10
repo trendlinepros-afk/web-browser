@@ -1,0 +1,39 @@
+appId: com.trendlinepros.webbrowser
+productName: Web Browser
+copyright: Copyright © 2026 trendlinepros-afk
+directories:
+  output: release
+  buildResources: build
+files:
+  - dist/**/*
+  - package.json
+  - "!**/*.map"
+asar: true
+
+# Updates are published to GitHub Releases on this repo and read by electron-updater.
+# CI uploads to a draft release first; the draft is published only once every platform
+# has uploaded, so users never see a half-finished release.
+publish:
+  provider: github
+  owner: trendlinepros-afk
+  repo: web-browser
+  releaseType: draft
+
+win:
+  target: [nsis]
+nsis:
+  oneClick: true
+  perMachine: false
+  differentialPackage: true
+
+mac:
+  target: [dmg, zip]
+  category: public.app-category.productivity
+
+linux:
+  # .deb is preferred: it installs Chromium's setuid sandbox helper, which extension
+  # service workers (e.g. LastPass) need for the full chrome.* API. AppImage is a fallback.
+  target: [deb, AppImage]
+  category: Network
+  maintainer: trendlinepros-afk <trendlinepros-afk@users.noreply.github.com>
+  synopsis: Fast, lightweight browser with Chrome extension support

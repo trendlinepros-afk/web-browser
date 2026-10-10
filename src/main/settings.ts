@@ -1,0 +1,74 @@
+import { app } from 'electron'
+import fs from 'node:fs'
+import path from 'node:path'
+
+export interface Settings {
+  searchEngine: string
+  homepage: string
+  /** Hidden tabs are put to sleep after this many minutes. 0 disables time-based sleeping. */
+  discardAfterMinutes: number
+  /** Sleep least-recently-used tabs when free system memory drops below this (MB). 0 disables. */
+  memoryPressureFreeMB: number
+  sleepPinnedTabs: boolean
+  restoreSession: boolean
+  checkForUpdatesOnStartup: boolean
+  mcp: {
+    enabled: boolean
+    port: number
+    token: string
+    allowEvaluate: boolean
+    allowIncognito: boolean
+  }
+}
+
+const DEFAULTS: Settings = {
+  searchEngine: 'https://www.google.com/search?q=%s',
+  homepage: 'about:blank',
+  discardAfterMinutes: 15,
+  memoryPressureFreeMB: 800,
+  sleepPinnedTabs: false,
+  restoreSession: true,
+  checkForUpdatesOnStartup: true,
+  mcp: {
+    enabled: false,
+    port: 47823,
+    token: '',
+    allowEvaluate: false,
+    allowIncognito: false,
+  },
+}
+
+let cached: Settings | null = null
+let writeTimer: NodeJS.Timeout | null = null
+
+function file(): string {
+  return path.join(app.getPath('userData'), 'settings.json')
+}
+
+export function getSettings(): Settings {
+  if (cached) return cached
+  let stored: Partial<Settings> = {}
+  try {
+    stored = JSON.parse(fs.readFileSync(file(), 'utf8'))
+  } catch {
+    // First run or unreadable file: fall back to defaults.
+  }
+  cached = { ...DEFAULTS, ...stored, mcp: { ...DEFAULTS.mcp, ...(stored.mcp ?? {}) } }
+  return cached
+}
+
+export function updateSettings(patch: (s: Settings) => void): Settings {
+  const s = getSettings()
+  patch(s)
+  if (writeTimer) clearTimeout(writeTimer)
+  writeTimer = setTimeout(flushSettings, 250)
+  return s
+}
+
+export function flushSettings(): void {
+  if (writeTimer) clearTimeout(writeTimer)
+  writeTimer = null
+  if (!cached) return
+  fs.mkdirSync(path.dirname(file()), { recursive: true })
+  fs.writeFileSync(file(), JSON.stringify(cached, null, 2))
+}

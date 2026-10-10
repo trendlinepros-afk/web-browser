@@ -1,0 +1,32 @@
+// Preload for the browser UI (tab strip + toolbar). Exposes a small, explicit API; no Node access leaks to the page.
+import { contextBridge, ipcRenderer } from 'electron'
+import { injectBrowserAction } from 'electron-chrome-extensions/browser-action'
+import type { UiApi, WindowState } from '../shared/types'
+
+// Registers the <browser-action-list> element used for extension toolbar buttons.
+injectBrowserAction()
+
+const send = (name: string, ...args: unknown[]) => ipcRenderer.send('ui:cmd', name, ...args)
+
+const api: UiApi = {
+  newTab: (url) => send('newTab', url),
+  closeTab: (id) => send('closeTab', id),
+  activateTab: (id) => send('activateTab', id),
+  navigate: (id, input) => send('navigate', id, input),
+  goBack: (id) => send('goBack', id),
+  goForward: (id) => send('goForward', id),
+  reload: (id) => send('reload', id),
+  stop: (id) => send('stop', id),
+  toggleMute: (id) => send('toggleMute', id),
+  showAppMenu: (x, y) => send('showAppMenu', x, y),
+  showTabMenu: (id) => send('showTabMenu', id),
+  onState: (cb) => {
+    ipcRenderer.on('ui:state', (_e, state: WindowState) => cb(state))
+  },
+  onFocusAddressBar: (cb) => {
+    ipcRenderer.on('ui:focus-address-bar', () => cb())
+  },
+  ready: () => send('ready'),
+}
+
+contextBridge.exposeInMainWorld('browser', api)
