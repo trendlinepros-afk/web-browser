@@ -122,7 +122,7 @@ export class BrowserMcpServer {
   private createServer(): McpServer {
     const { McpServer } = require('@modelcontextprotocol/sdk/server/mcp.js') as typeof import('@modelcontextprotocol/sdk/server/mcp.js')
     const { z } = require('zod') as typeof import('zod')
-    const mcp = new McpServer({ name: 'web-browser', version: app.getVersion() })
+    const mcp = new McpServer({ name: 'zirtola', version: app.getVersion() })
     const tabId = z.number().int().optional().describe('Tab id from list_tabs. Defaults to the active tab.')
     const ref = z.number().int().optional().describe('Element ref from snapshot.')
     const selector = z.string().optional().describe('CSS selector (used when no ref is given).')

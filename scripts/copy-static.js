@@ -6,7 +6,7 @@ const src = path.join(__dirname, '..', 'src', 'renderer')
 const out = path.join(__dirname, '..', 'dist', 'renderer')
 fs.mkdirSync(out, { recursive: true })
 for (const file of fs.readdirSync(src)) {
-  if (file.endsWith('.html') || file.endsWith('.css')) {
+  if (file.endsWith('.html') || file.endsWith('.css') || file.endsWith('.png')) {
     fs.copyFileSync(path.join(src, file), path.join(out, file))
   }
 }

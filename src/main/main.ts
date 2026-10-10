@@ -1,12 +1,17 @@
 import { app, BrowserWindow, session } from 'electron'
+import fs from 'node:fs'
+import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { Browser } from './browser'
 import { setupExtensions } from './extensions'
 import { TabSleeper } from './tab-sleeper'
 import { BrowserMcpServer } from './mcp-server'
 import { Menus } from './menu'
 import { checkForUpdates } from './updater'
+import { offerDefaultBrowserOnce } from './default-browser'
 import { flushSettings, getSettings } from './settings'
 import { applyCommandLineHardening } from './privacy'
+import { migrateLegacyProfile } from './profile-migration'
 
 // ---- Process-wide tuning (must run before 'ready') ------------------------
 
@@ -28,14 +33,22 @@ function chromeUserAgent(): string {
 }
 app.userAgentFallback = chromeUserAgent()
 
+migrateLegacyProfile()
+
 if (!app.requestSingleInstanceLock()) {
   app.quit()
 } else {
   main()
 }
 
+/** Links and local pages passed on the command line (e.g. clicking a link when Zirtola is the default browser). */
 function urlsFromArgv(argv: string[]): string[] {
-  return argv.filter((a) => /^(https?|file):\/\//i.test(a))
+  const out: string[] = []
+  for (const arg of argv.slice(1)) {
+    if (/^(https?|file):\/\//i.test(arg)) out.push(arg)
+    else if (/\.(x?html?|shtml|pdf|svg)$/i.test(arg) && fs.existsSync(arg)) out.push(pathToFileURL(path.resolve(arg)).href)
+  }
+  return out
 }
 
 function main(): void {
@@ -80,6 +93,8 @@ function main(): void {
     if (getSettings().mcp.enabled) {
       mcp.start().catch((err) => console.error('MCP server failed to start:', err))
     }
+    const first = browser.lastFocused
+    if (first) setTimeout(() => offerDefaultBrowserOnce(first.win).catch(() => {}), 3000)
     if (getSettings().checkForUpdatesOnStartup) {
       setTimeout(() => checkForUpdates({ interactive: false }), 10_000)
     }

@@ -46,6 +46,19 @@ body.incognito {
   }
 }
 
+/* The system accent color (Windows/macOS), lightened for dark backgrounds. */
+body.has-accent {
+  --accent: var(--sys-accent);
+}
+@media (prefers-color-scheme: dark) {
+  body.has-accent {
+    --accent: color-mix(in srgb, var(--sys-accent) 60%, white);
+  }
+}
+body.incognito.has-accent {
+  --accent: color-mix(in srgb, var(--sys-accent) 60%, white);
+}
+
 * {
   box-sizing: border-box;
 }
@@ -55,7 +68,7 @@ body {
   margin: 0;
   height: 100%;
   overflow: hidden;
-  font: 12px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font: 12px 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
   color: var(--fg);
   background: var(--bg-toolbar);
   user-select: none;
@@ -99,6 +112,22 @@ button {
   align-items: flex-end;
   padding: 0 6px;
   gap: 2px;
+}
+
+/* Integrated title bar: the strip drags the window; the OS draws the window buttons on top. */
+body.frame-integrated #tabstrip {
+  -webkit-app-region: drag;
+}
+body.frame-integrated #tabstrip .tab,
+body.frame-integrated #tabstrip button {
+  -webkit-app-region: no-drag;
+}
+body.frame-integrated.platform-win32 #tabstrip {
+  /* Minimize / maximize / close: 3 × 46px, plus breathing room to grab the window. */
+  padding-right: 168px;
+}
+body.frame-integrated.platform-darwin #tabstrip {
+  padding-left: 80px;
 }
 
 #tabs {
@@ -273,7 +302,7 @@ button {
   outline: 0;
   background: transparent;
   color: var(--fg);
-  font: 14px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font: 14px 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
   user-select: text;
 }
 #incognito-badge {

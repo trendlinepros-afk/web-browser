@@ -1,5 +1,6 @@
 import { app, BrowserWindow, dialog } from 'electron'
 import type { AppUpdater } from 'electron-updater'
+import { APP_NAME } from './brand'
 
 /**
  * Updates come from GitHub Releases of this (public) repo. See electron-builder.yml `publish`.
@@ -82,7 +83,7 @@ export async function checkForUpdates({ interactive }: { interactive: boolean })
           type: 'info',
           title: 'No updates',
           message: "You're up to date.",
-          detail: `Web Browser ${app.getVersion()} is the latest version.`,
+          detail: `${APP_NAME} ${app.getVersion()} is the latest version.`,
         })
       }
       return

@@ -10,6 +10,7 @@ import { toNavigableURL } from './url'
 import { AdBlocker } from './blocker'
 import { configureNetwork } from './privacy'
 import { BookmarkStore } from './bookmarks'
+import { onThemeChanged } from './theme'
 
 interface SavedSession {
   version: 1
@@ -38,6 +39,9 @@ export class Browser {
   private closedTabs: { saved: SavedTab; incognito: boolean }[] = []
 
   constructor() {
+    onThemeChanged(() => {
+      for (const w of this.windows.values()) w.onThemeChanged()
+    })
     this.bookmarks.load()
     this.bookmarks.onChanged = () => {
       // Coalesce bursts (e.g. an import) into one UI update.

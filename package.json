@@ -1,8 +1,8 @@
 {
-  "name": "web-browser",
-  "productName": "Web Browser",
+  "name": "zirtola",
+  "productName": "Zirtola",
   "version": "0.1.0",
-  "description": "A fast, lightweight Chromium-based browser with Chrome extension support and a built-in MCP server.",
+  "description": "Zirtola: a fast, private, lightweight Chromium-based browser with Chrome extension support and a built-in MCP server.",
   "main": "dist/main/main.js",
   "author": "trendlinepros-afk",
   "license": "GPL-3.0",
@@ -36,5 +36,5 @@
     "electron-builder": "^26.15.3",
     "typescript": "^7.0.2"
   },
-  "desktopName": "web-browser.desktop"
+  "desktopName": "zirtola.desktop"
 }

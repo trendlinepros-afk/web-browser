@@ -1,11 +1,12 @@
-# Web Browser
+# Zirtola
 
-A fast, lightweight desktop browser built on Chromium (via Electron) with:
+A fast, private, lightweight desktop browser built on Chromium (via Electron), designed first for Windows 11:
 
 - **Chrome extensions**, including LastPass, installed straight from the Chrome Web Store
 - **Built-in ad, tracker and cookie-banner blocking**, with no Manifest V3 limits
 - **No Google tracking**: no account sign-in, sync or usage reporting, and Chrome's Privacy Sandbox ad APIs are switched off
 - **Tab sleeping**: hidden tabs release their memory automatically and wake when you click them
+- **Bookmarks bar** with one-click **import from Firefox**
 - **Incognito windows** that keep nothing on disk and don't share cookies with anything else
 - **A built-in MCP server** so Claude can drive the browser (off by default)
 - **One-click updates** from GitHub Releases
@@ -18,10 +19,16 @@ Download the latest release from the [Releases page](https://github.com/trendlin
 
 | OS | File | Notes |
 |---|---|---|
-| Windows | `Web-Browser-Setup-x.y.z.exe` | Unsigned for now: on first run click **More info → Run anyway** |
-| macOS | `Web-Browser-x.y.z.dmg` | Unsigned for now: right-click the app → **Open**. Auto-update needs signing (planned) |
-| Linux | `web-browser_x.y.z_amd64.deb` | Preferred. `sudo apt install ./web-browser_*.deb` |
-| Linux | `Web-Browser-x.y.z.AppImage` | Fallback |
+| **Windows 10/11** | `Zirtola-Setup-x.y.z.exe` | Unsigned for now: on first run click **More info → Run anyway** |
+| macOS | `Zirtola-x.y.z-arm64-mac.dmg` (Apple Silicon) / `-x64-` (Intel) | Unsigned: right-click the app → **Open**. Auto-update needs signing (planned) |
+| Linux | `zirtola_x.y.z_amd64.deb` | Preferred. `sudo apt install ./zirtola_*.deb` |
+| Linux | `Zirtola-x.y.z.AppImage` | Fallback |
+
+**Default browser (Windows):** Zirtola offers this once on first launch, or use Menu (⋮) → **Make Zirtola your default
+browser…**. Windows opens Settings › Default apps, where you click **Set default** next to Zirtola.
+
+**Coming from "Web Browser"?** That was this app's working name. Updating carries your bookmarks, tabs, settings,
+logins and extensions over automatically.
 
 ## Updating
 

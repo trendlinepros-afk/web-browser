@@ -3,6 +3,8 @@ import path from 'node:path'
 import type { BookmarkBarState, WindowState } from '../shared/types'
 import { BookmarkStore } from './bookmarks'
 import { getSettings } from './settings'
+import { APP_NAME } from './brand'
+import { accentColor, frameOptions, integratedTitleBar, titleBarOverlay, uiPlatform } from './theme'
 import { Tab, type SavedTab } from './tab'
 import type { Browser } from './browser'
 
@@ -52,9 +54,11 @@ export class BrowserWindowController {
       minWidth: 480,
       minHeight: 300,
       show: false,
-      title: opts.incognito ? 'Incognito' : 'Web Browser',
+      title: opts.incognito ? `${APP_NAME} Incognito` : APP_NAME,
       backgroundColor: opts.incognito ? '#202124' : '#f1f3f4',
       autoHideMenuBar: true,
+      icon: process.platform === 'linux' ? path.join(__dirname, '..', 'renderer', 'icon.png') : undefined,
+      ...frameOptions(opts.incognito),
       webPreferences: {
         preload: path.join(__dirname, '..', 'preload', 'ui-preload.js'),
         // The UI preload needs Node's require() for the extension toolbar element.
@@ -68,7 +72,7 @@ export class BrowserWindowController {
     if (opts.restore?.maximized) this.win.maximize()
 
     this.win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'), {
-      query: { incognito: opts.incognito ? '1' : '0' },
+      query: { incognito: opts.incognito ? '1' : '0', platform: uiPlatform, frame: integratedTitleBar ? 'integrated' : 'native' },
     })
     this.win.once('ready-to-show', () => this.win.show())
     this.win.on('resize', () => this.layout())
@@ -294,10 +298,17 @@ export class BrowserWindowController {
     this.layout()
   }
 
+  /** Light/dark mode or accent color changed: recolor the native caption buttons and the UI. */
+  onThemeChanged(): void {
+    const overlay = titleBarOverlay(this.incognito)
+    if (overlay && !this.win.isDestroyed()) this.win.setTitleBarOverlay(overlay)
+    this.pushState()
+  }
+
   private sendState(): void {
     if (!this.uiReady || this.win.isDestroyed()) return
     const title = this.activeTab?.title
-    this.win.setTitle(title ? `${title}${this.incognito ? ' — Incognito' : ''}` : 'Web Browser')
+    this.win.setTitle(title ? `${title}${this.incognito ? ' — Incognito' : ''} - ${APP_NAME}` : APP_NAME)
     this.win.webContents.send('ui:state', this.state())
   }
 
@@ -309,6 +320,7 @@ export class BrowserWindowController {
       activeTabId: this.activeTab?.id ?? null,
       tabs: this.tabs.map((t) => t.info()),
       mcpEnabled: this.browser.mcpEnabled(),
+      accent: accentColor(),
     }
   }
 

@@ -59,7 +59,9 @@ reloadBtn.innerHTML = ICONS.reload
 menuBtn.innerHTML = ICONS.menu
 newTabBtn.innerHTML = ICONS.plus
 
-const incognito = new URLSearchParams(location.search).get('incognito') === '1'
+const params = new URLSearchParams(location.search)
+const incognito = params.get('incognito') === '1'
+document.body.classList.add(`platform-${params.get('platform') ?? 'unknown'}`, `frame-${params.get('frame') ?? 'native'}`)
 document.body.classList.toggle('incognito', incognito)
 $('incognito-badge').hidden = !incognito
 
@@ -150,6 +152,8 @@ function render(): void {
   reloadBtn.title = tab?.loading ? 'Stop loading' : 'Reload (Ctrl+R)'
   if (!editing) address.value = displayURL(tab?.url ?? '')
   mcpBadge.hidden = !state.mcpEnabled
+  if (state.accent) document.body.style.setProperty('--sys-accent', state.accent)
+  document.body.classList.toggle('has-accent', !!state.accent)
   renderShield(tab)
   const web = !!tab && /^(https?|file):/.test(tab.url)
   starBtn.hidden = !web

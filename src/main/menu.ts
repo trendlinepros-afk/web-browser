@@ -6,6 +6,7 @@ import { BrowserMcpServer } from './mcp-server'
 import type { TabSleeper } from './tab-sleeper'
 import { getSettings, updateSettings } from './settings'
 import { checkForUpdates } from './updater'
+import { makeDefaultBrowser } from './default-browser'
 import { AdBlocker } from './blocker'
 import { BookmarkUi } from './bookmark-ui'
 import { CHROME_WEB_STORE_URL, LASTPASS_URL, updateAllExtensions } from './extensions'
@@ -295,8 +296,9 @@ export class Menus {
         ],
       },
       { type: 'separator' },
+      { label: 'Make Zirtola your default browser…', click: () => makeDefaultBrowser() },
       { label: 'Check for updates…', click: () => checkForUpdates({ interactive: true }) },
-      { label: `About (v${app.getVersion()})`, click: () => shell.openExternal(REPO_URL) },
+      { label: `About Zirtola (v${app.getVersion()})`, click: () => shell.openExternal(REPO_URL) },
       { type: 'separator' },
       { label: 'Quit', accelerator: 'CmdOrCtrl+Q', click: () => app.quit() },
     ]

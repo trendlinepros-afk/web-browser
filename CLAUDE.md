@@ -1,5 +1,8 @@
 # Working on this repo
 
+**Zirtola**: a Chromium (Electron) browser. The owner uses **Windows 11 Pro**: design for Windows first,
+and keep macOS/Linux working.
+
 ## Always ship to `main`
 The owner's standing instruction: **push every finished change to `main`**. Each push to `main`
 triggers `.github/workflows/release.yml`, which builds all installers and publishes a GitHub

@@ -47,6 +47,8 @@ export interface WindowState {
   activeTabId: number | null
   tabs: TabInfo[]
   mcpEnabled: boolean
+  /** System accent color (#rrggbb) on Windows/macOS, else null. */
+  accent: string | null
 }
 
 export type UpdateStatus =

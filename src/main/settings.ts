@@ -13,6 +13,8 @@ export interface Settings {
   restoreSession: boolean
   checkForUpdatesOnStartup: boolean
   showBookmarksBar: boolean
+  /** The first-run "make default browser" question has been asked. */
+  askedDefaultBrowser: boolean
   blocking: {
     /** Block ads, trackers and known malware/scam domains. */
     enabled: boolean
@@ -43,6 +45,7 @@ const DEFAULTS: Settings = {
   restoreSession: true,
   checkForUpdatesOnStartup: true,
   showBookmarksBar: true,
+  askedDefaultBrowser: false,
   blocking: {
     enabled: true,
     cookieBanners: true,

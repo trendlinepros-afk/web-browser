@@ -1,10 +1,11 @@
-# Web Browser — Product & Technical Spec
+# Zirtola: Product & Technical Spec
 
 Status: **Stages 1, 1.5 (privacy & blocking) and 1.6 (bookmarks) done; LastPass gate pending** · Last updated 2026-10-10
 
 ## 1. What we're building
 
-A fast, low-overhead desktop browser that:
+**Zirtola** is a fast, low-overhead desktop browser. **Primary platform: Windows 11** (designed and tuned for it
+first; macOS and Linux builds ship too). It:
 
 1. **Runs Chrome extensions, LastPass first of all.** This is a hard requirement and drives the engine choice.
 2. **Stays light.** Idle tabs go to sleep, background tabs are throttled, and restored sessions load lazily.
@@ -210,7 +211,16 @@ history, lazy session restore across restarts, and incognito cookie/storage isol
 - [x] Stored in `<userData>/bookmarks.json`; icons kept as data: URLs so the bar makes no network requests
 - Releases: every push to `main` publishes a new version (`release.yml`)
 
+### Stage 1.7: Zirtola identity & Windows 11 integration (done)
+- [x] Renamed to Zirtola (icon in `build/icon.svg`, rendered by `scripts/render-icon.js`). `appId` kept so installed copies
+      update in place; the old "Web Browser" profile is migrated on first run (`profile-migration.ts`)
+- [x] Windows 11: tabs in the title bar with native caption buttons (Snap Layouts work), Segoe UI Variable,
+      the system accent color (follows changes live), light/dark title bar colors
+- [x] Default browser: the installer registers Zirtola under Settings › Default apps (`build/installer.nsh`); one-time
+      offer on first run plus a menu item; opens links and .html files passed by Windows
+
 ### Stage 2: UI & everyday features
+Design target: Windows 11 (Fluent): rounded corners, Mica-style surfaces, Segoe UI Variable, accent color.
 - Visual design pass: compact tab strip, light and dark themes, smooth tab animations
 - Find in page (Ctrl+F), zoom per site, print, reopen closed tab, tab drag-reorder
 - History, bookmarks (+ bookmark bar), address bar suggestions (history, bookmarks, search)

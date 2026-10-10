@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5b4cf0"/>
+      <stop offset="0.55" stop-color="#3a7bf2"/>
+      <stop offset="1" stop-color="#14c3d9"/>
+    </linearGradient>
+    <linearGradient id="shine" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#ffffff" stop-opacity="0.22"/>
+      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="z" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#ffffff"/>
+      <stop offset="1" stop-color="#e3f3ff"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="18" stdDeviation="22" flood-color="#0b1b5c" flood-opacity="0.35"/>
+    </filter>
+  </defs>
+  <rect x="64" y="64" width="896" height="896" rx="208" fill="url(#bg)"/>
+  <rect x="64" y="64" width="896" height="896" rx="208" fill="url(#shine)"/>
+  <!-- A "Z" whose diagonal is a speed stroke -->
+  <path filter="url(#shadow)" fill="url(#z)" d="
+    M 300 268 H 724 Q 760 268 742 300 L 470 676 H 724 Q 764 676 764 716 V 716 Q 764 756 724 756 H 300
+    Q 262 756 282 722 L 554 348 H 300 Q 260 348 260 308 Q 260 268 300 268 Z"/>
+  <path fill="#ffffff" fill-opacity="0.55" d="M 640 420 L 812 420 Q 836 420 836 444 Q 836 468 812 468 L 606 468 Z"/>
+  <path fill="#ffffff" fill-opacity="0.35" d="M 586 516 L 760 516 Q 782 516 782 538 Q 782 560 760 560 L 554 560 Z"/>
+</svg>
