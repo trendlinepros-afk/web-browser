@@ -33,6 +33,7 @@ Your tabs come back after the restart. The browser also checks quietly on startu
 | Action | Shortcut |
 |---|---|
 | New tab / window / incognito window | Ctrl+T / Ctrl+N / Ctrl+Shift+N |
+| Bookmark page / show bookmarks bar | Ctrl+D / Ctrl+Shift+B |
 | Close tab / reopen closed tab | Ctrl+W / Ctrl+Shift+T |
 | Address bar | Ctrl+L, Alt+D, F6 |
 | Next / previous tab, jump to tab | Ctrl+Tab / Ctrl+Shift+Tab, Ctrl+1…9 |
@@ -45,6 +46,17 @@ Your tabs come back after the restart. The browser also checks quietly on startu
 ### LastPass and other extensions
 Menu → **Extensions → Install LastPass** (or **Get extensions** for the whole Chrome Web Store), then click
 **Add to Chrome**. Extension buttons show up in the toolbar. Extensions update automatically.
+
+### Bookmarks
+- **Bookmark a page:** click the ☆ in the address bar or press Ctrl+D. It goes on the bookmarks bar, and a
+  small dialog lets you rename it or pick a folder.
+- **Bookmarks bar:** shown under the address bar (toggle with Ctrl+Shift+B). Click to open, Ctrl+click or
+  middle-click for a new tab, and click a folder for its contents. Drag items to reorder them, or onto a folder to
+  move them in. Right-click for edit, delete, new folder and "open all". Items that don't fit go under ».
+- **Import from Firefox:** Menu → Bookmarks → **Import bookmarks from Firefox…** (or the link on an empty bar).
+  It reads your Firefox profile directly, icons included. Firefox can stay open. Your Firefox toolbar lands on the bar and
+  everything else goes under *Other bookmarks › Imported from Firefox*. Importing again skips pages you already have.
+- **Import/export HTML:** works with exports from Firefox, Chrome, Edge and Safari, and is a good way to back up.
 
 ### Ads, trackers and privacy
 The shield button next to the address bar shows how many ads and trackers were blocked on the current page.
@@ -96,13 +108,9 @@ Code layout: `src/main` (browser engine: windows, tabs, sleeping, extensions, MC
 
 ### Releasing a new version
 
-```bash
-npm version patch          # or minor / major: bumps package.json and creates a tag
-git push --follow-tags
-```
-
-GitHub Actions builds Windows, macOS and Linux installers, uploads them to a draft release, then publishes it.
-Installed browsers pick it up through **Check for updates**.
+Every push to `main` is a release. GitHub Actions builds Windows, macOS and Linux installers, numbers the version
+`<major>.<minor>.<build>`, and publishes it. Installed browsers pick it up through **Check for updates**.
+Bump `major`/`minor` in `package.json` for big milestones. Docs-only pushes don't trigger a release.
 
 ## License
 

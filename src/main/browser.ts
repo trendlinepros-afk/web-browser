@@ -9,6 +9,7 @@ import { configureSession } from './permissions'
 import { toNavigableURL } from './url'
 import { AdBlocker } from './blocker'
 import { configureNetwork } from './privacy'
+import { BookmarkStore } from './bookmarks'
 
 interface SavedSession {
   version: 1
@@ -20,6 +21,8 @@ export class Browser {
   readonly profilePartition = 'persist:default'
   readonly profile: Session
   readonly blocker = new AdBlocker()
+  readonly bookmarks = new BookmarkStore()
+  private bookmarksSent = -1
   private tabsByWebContents = new WeakMap<WebContents, Tab>()
   extensions: ElectronChromeExtensions | null = null
   windows = new Map<number, BrowserWindowController>()
@@ -35,6 +38,15 @@ export class Browser {
   private closedTabs: { saved: SavedTab; incognito: boolean }[] = []
 
   constructor() {
+    this.bookmarks.load()
+    this.bookmarks.onChanged = () => {
+      // Coalesce bursts (e.g. an import) into one UI update.
+      setImmediate(() => {
+        if (this.bookmarksSent === this.bookmarks.version) return
+        this.bookmarksSent = this.bookmarks.version
+        this.bookmarksLayoutChanged()
+      })
+    }
     this.profile = session.fromPartition(this.profilePartition)
     configureSession(this.profile, this)
     configureNetwork(this.profile, this.blocker)
@@ -122,6 +134,14 @@ export class Browser {
 
   registerTabWebContents(tab: Tab, wc: WebContents): void {
     this.tabsByWebContents.set(wc, tab)
+  }
+
+  /** Bookmarks or the bar's visibility changed: refresh every window's bar, stars and layout. */
+  bookmarksLayoutChanged(): void {
+    for (const w of this.windows.values()) {
+      w.sendBookmarks()
+      w.pushState()
+    }
   }
 
   rememberClosedTab(window: BrowserWindowController, tab: Tab): void {
@@ -244,6 +264,8 @@ export class Browser {
           return tab && this.onShowTabMenu?.(w, tab)
         case 'showShieldMenu':
           return this.onShowShieldMenu?.(w, Number(args[0]), Number(args[1]))
+        default:
+          if (name === 'bookmarkActiveTab' || name.startsWith('bookmark:')) return this.onBookmarkCommand?.(w, name, args)
       }
     })
   }
@@ -251,4 +273,5 @@ export class Browser {
   onShowAppMenu: ((w: BrowserWindowController, x: number, y: number) => void) | null = null
   onShowTabMenu: ((w: BrowserWindowController, tab: Tab) => void) | null = null
   onShowShieldMenu: ((w: BrowserWindowController, x: number, y: number) => void) | null = null
+  onBookmarkCommand: ((w: BrowserWindowController, name: string, args: unknown[]) => void) | null = null
 }

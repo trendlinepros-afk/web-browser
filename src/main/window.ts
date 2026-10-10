@@ -1,11 +1,15 @@
 import { BrowserWindow, type HandlerDetails, type Session, type WebContentsView, type WindowOpenHandlerResponse } from 'electron'
 import path from 'node:path'
-import type { WindowState } from '../shared/types'
+import type { BookmarkBarState, WindowState } from '../shared/types'
+import { BookmarkStore } from './bookmarks'
+import { getSettings } from './settings'
 import { Tab, type SavedTab } from './tab'
 import type { Browser } from './browser'
 
 /** Height of the browser UI (tab strip + toolbar) in DIPs. Must match styles.css. */
 export const UI_HEIGHT = 78
+/** Height of the bookmarks bar when shown. Must match --bookmarks-h in styles.css. */
+export const BOOKMARKS_BAR_HEIGHT = 32
 
 export interface SavedWindow {
   bounds: Electron.Rectangle
@@ -74,12 +78,16 @@ export class BrowserWindowController {
       browser.lastFocused = this
       if (this.activeTab?.webContents) this.notifyExtensionsSelected(this.activeTab.webContents)
     })
-    this.win.on('close', () => browser.onWindowClosing(this))
-    this.win.on('closed', () => {
-      for (const tab of this.tabs) tab.destroy()
+    this.win.on('close', () => {
+      browser.onWindowClosing(this)
+      // Tear tabs down while the window still exists: the extension layer looks up each
+      // tab's window when it's removed, which throws once the window is destroyed.
+      const tabs = this.tabs
       this.tabs = []
-      browser.onWindowClosed(this)
+      this.activeTab = null
+      for (const tab of tabs) tab.destroy()
     })
+    this.win.on('closed', () => browser.onWindowClosed(this))
 
     if (opts.restore && opts.restore.tabs.length > 0) {
       // Lazy restore: every tab starts asleep; only the active one is woken.
@@ -188,7 +196,7 @@ export class BrowserWindowController {
     if (!view || this.win.isDestroyed()) return
     const [width, height] = this.win.getContentSize()
     const fullscreen = this.activeTab?.htmlFullscreen ?? false
-    const top = fullscreen ? 0 : UI_HEIGHT
+    const top = fullscreen ? 0 : this.uiHeight()
     view.setBounds({ x: 0, y: top, width, height: Math.max(0, height - top) })
   }
 
@@ -246,9 +254,14 @@ export class BrowserWindowController {
 
   // ---- UI -----------------------------------------------------------------
 
+  uiHeight(): number {
+    return UI_HEIGHT + (getSettings().showBookmarksBar ? BOOKMARKS_BAR_HEIGHT : 0)
+  }
+
   onUiReady(): void {
     this.uiReady = true
     this.sendState()
+    this.sendBookmarks()
     if (this.activeTab && !this.activeTab.url) this.focusAddressBar()
   }
 
@@ -266,6 +279,19 @@ export class BrowserWindowController {
       this.statePending = false
       this.sendState()
     })
+  }
+
+  /** The bar's top-level items; sent only when bookmarks or the bar's visibility change. */
+  sendBookmarks(): void {
+    if (!this.uiReady || this.win.isDestroyed()) return
+    const store = this.browser.bookmarks
+    const bar: BookmarkBarState = {
+      visible: getSettings().showBookmarksBar,
+      items: (store.bar.children ?? []).map((n) => BookmarkStore.toItem(n)),
+      otherCount: store.other.children?.length ?? 0,
+    }
+    this.win.webContents.send('ui:bookmarks', bar)
+    this.layout()
   }
 
   private sendState(): void {

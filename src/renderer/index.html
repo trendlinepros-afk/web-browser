@@ -21,11 +21,21 @@
       <form id="address-form" autocomplete="off">
         <span id="incognito-badge" hidden>Incognito</span>
         <input id="address" type="text" spellcheck="false" placeholder="Search or enter address" aria-label="Address and search bar" />
+        <button id="star" type="button" class="star" title="Bookmark this page (Ctrl+D)" aria-label="Bookmark this page"></button>
       </form>
       <button id="shield" class="icon-btn" title="Ad &amp; tracker blocking" aria-label="Ad and tracker blocking"></button>
       <div id="extensions"></div>
       <span id="mcp-badge" hidden title="Claude can control this browser (MCP server is on)">Claude</span>
       <button id="menu" class="icon-btn" title="Menu" aria-label="Menu"></button>
+    </div>
+    <div id="bookmarks-bar" hidden>
+      <div id="bm-items" role="toolbar" aria-label="Bookmarks"></div>
+      <span id="bm-empty" hidden>
+        For quick access, put your bookmarks here.
+        <button id="bm-import" type="button">Import from Firefox…</button>
+      </span>
+      <button id="bm-overflow" class="bm" type="button" hidden title="More bookmarks" aria-label="More bookmarks"></button>
+      <button id="bm-other" class="bm" type="button" hidden><span class="title">Other bookmarks</span></button>
     </div>
     <script type="module" src="ui.js"></script>
   </body>

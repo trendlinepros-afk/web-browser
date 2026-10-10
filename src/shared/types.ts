@@ -18,7 +18,26 @@ export interface TabInfo {
   blocked: number
   /** Whether ad/tracker blocking applies to this page (off for allowlisted sites). */
   blockingActive: boolean
+  /** The page is bookmarked (filled star). */
+  bookmarked: boolean
 }
+
+export interface BookmarkItem {
+  id: string
+  title: string
+  url: string | null
+  favicon: string | null
+  folder: boolean
+}
+
+export interface BookmarkBarState {
+  visible: boolean
+  items: BookmarkItem[]
+  /** Number of entries under "Other bookmarks" (its button shows when > 0). */
+  otherCount: number
+}
+
+export type OpenDisposition = 'current' | 'foreground-tab' | 'background-tab'
 
 export interface WindowState {
   windowId: number
@@ -54,6 +73,17 @@ export interface UiApi {
   showAppMenu(x: number, y: number): void
   showTabMenu(tabId: number): void
   showShieldMenu(x: number, y: number): void
+  /** Star button / Ctrl+D: bookmark the active page, or edit its bookmark. */
+  bookmarkActiveTab(): void
+  openBookmark(id: string, disposition: OpenDisposition): void
+  /** Drop-down for a folder on the bar (or "other" for Other bookmarks). */
+  showBookmarkFolder(id: string, x: number, y: number): void
+  showBookmarkContextMenu(id: string | null, x: number, y: number): void
+  /** The » button: bar items that didn't fit. */
+  showBookmarkOverflow(ids: string[], x: number, y: number): void
+  moveBookmark(id: string, parentId: string, index: number): void
+  importFirefoxBookmarks(): void
+  onBookmarks(cb: (bar: BookmarkBarState) => void): void
   onState(cb: (state: WindowState) => void): void
   onFocusAddressBar(cb: () => void): void
   ready(): void

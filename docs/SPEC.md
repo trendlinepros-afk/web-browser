@@ -1,6 +1,6 @@
 # Web Browser — Product & Technical Spec
 
-Status: **Stage 1 (Foundation) + Stage 1.5 (Privacy & blocking) done; LastPass gate pending** · Last updated 2026-10-10
+Status: **Stages 1, 1.5 (privacy & blocking) and 1.6 (bookmarks) done; LastPass gate pending** · Last updated 2026-10-10
 
 ## 1. What we're building
 
@@ -75,6 +75,9 @@ Main process (src/main)
   settings.ts     JSON settings at <userData>/settings.json
   menu.ts         App menu + keyboard shortcuts
   context-menu.ts Page right-click menu, including extension items
+  bookmarks.ts    Bookmark store (bar + other), favicon capture
+  bookmark-ui.ts  Bar actions, folder menus, edit dialog, import/export flows
+  bookmark-import.ts  Firefox profile reader (SQLite via node:sqlite), bookmarks HTML import/export
   blocker.ts      Ad/tracker/malware blocking + cosmetic filtering, per-site allowlist
   filter-worker.ts  Utility process that compiles filter lists (keeps parsing off the main thread)
   privacy.ts      Chromium hardening switches; owns all webRequest hooks; client hints, GPC
@@ -196,6 +199,17 @@ history, lazy session restore across restarts, and incognito cookie/storage isol
 - [x] WebRTC local-IP protection; one process per site
 - [x] Dependabot for Electron (Chromium) security releases
 
+### Stage 1.6: Bookmarks (done)
+- [x] Bookmarks bar: favicons, folders (drop-downs), overflow », drag to reorder or into folders, right-click menu,
+      Other bookmarks, show/hide (Ctrl+Shift+B), empty-bar hint
+- [x] ☆ in the address bar / Ctrl+D with an edit dialog (name, URL, folder); Bookmark all tabs
+- [x] Import from Firefox: reads `places.sqlite` + `favicons.sqlite` from a copy (works while Firefox is running,
+      including unsaved WAL changes), picks the active profile, keeps folder structure and icons, skips smart
+      folders, tags and separators, and never imports duplicates
+- [x] Import/export Netscape bookmarks HTML (Firefox, Chrome, Edge, Safari)
+- [x] Stored in `<userData>/bookmarks.json`; icons kept as data: URLs so the bar makes no network requests
+- Releases: every push to `main` publishes a new version (`release.yml`)
+
 ### Stage 2: UI & everyday features
 - Visual design pass: compact tab strip, light and dark themes, smooth tab animations
 - Find in page (Ctrl+F), zoom per site, print, reopen closed tab, tab drag-reorder
@@ -204,6 +218,7 @@ history, lazy session restore across restarts, and incognito cookie/storage isol
 - Settings page (search engine, sleep timeout, startup behavior, MCP, updates)
 - Extension management page, "Allow in incognito" per extension
 - Show sleeping tabs dimmed, with a "sleep this tab now" action
+- Bookmarks manager page (search, bulk edit); bookmarks in address bar suggestions
 
 ### Stage 3: Power & polish
 - "Dangerous site" interstitial for top-level navigations to known malware/phishing domains

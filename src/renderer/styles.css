@@ -1,4 +1,5 @@
 :root {
+  --bookmarks-h: 32px; /* BOOKMARKS_BAR_HEIGHT in src/main/window.ts */
   --strip-h: 36px;
   --toolbar-h: 42px; /* strip + toolbar = 78px = UI_HEIGHT in src/main/window.ts */
   --bg-strip: #dee1e6;
@@ -333,6 +334,134 @@ browser-action-list::part(action) {
 }
 browser-action-list::part(action):hover {
   background-color: var(--bg-tab-hover);
+}
+
+/* ---- Address bar star ----------------------------------------------------- */
+
+.star {
+  flex: none;
+  width: 26px;
+  height: 26px;
+  margin-right: -8px;
+  border: 0;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--fg-muted);
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+.star:hover {
+  background: var(--bg-tab-hover);
+}
+.star.on {
+  color: var(--accent);
+}
+.star svg {
+  width: 18px;
+  height: 18px;
+  fill: currentColor;
+}
+
+/* ---- Bookmarks bar -------------------------------------------------------- */
+
+#bookmarks-bar {
+  height: var(--bookmarks-h);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 0 8px;
+  background: var(--bg-toolbar);
+  border-bottom: 1px solid var(--border);
+}
+#toolbar:has(+ #bookmarks-bar:not([hidden])),
+#toolbar:has(~ #bookmarks-bar:not([hidden])) {
+  border-bottom: 0;
+}
+#bm-items {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  overflow: hidden;
+  height: 100%;
+}
+.bm {
+  flex: none;
+  max-width: 180px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 13px;
+  background: transparent;
+  color: var(--fg);
+  font-size: 12px;
+  position: relative;
+}
+.bm:hover,
+.bm.open {
+  background: var(--bg-tab-hover);
+}
+.bm img,
+.bm svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+}
+.bm svg {
+  fill: var(--fg-muted);
+}
+.bm .title {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bm .title:empty {
+  display: none;
+}
+.bm.drop-before::before,
+.bm.drop-after::after {
+  content: '';
+  position: absolute;
+  top: 3px;
+  bottom: 3px;
+  width: 2px;
+  border-radius: 1px;
+  background: var(--accent);
+}
+.bm.drop-before::before {
+  left: -2px;
+}
+.bm.drop-after::after {
+  right: -2px;
+}
+.bm.drop-into {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.bm.hidden-overflow {
+  visibility: hidden;
+}
+#bm-empty {
+  color: var(--fg-muted);
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+}
+#bm-empty button {
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-size: 12px;
+  padding: 0 4px;
+  cursor: pointer;
+}
+#bm-empty {
+  flex: 1;
 }
 
 [hidden] {

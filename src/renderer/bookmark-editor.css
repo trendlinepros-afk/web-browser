@@ -1,0 +1,80 @@
+:root {
+  --bg: #ffffff;
+  --fg: #202124;
+  --muted: #5f6368;
+  --border: #dadce0;
+  --accent: #1a73e8;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #292a2d;
+    --fg: #e8eaed;
+    --muted: #9aa0a6;
+    --border: #5f6368;
+    --accent: #8ab4f8;
+    color-scheme: dark;
+  }
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  padding: 18px 20px;
+  background: var(--bg);
+  color: var(--fg);
+  font: 13px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+}
+form {
+  display: grid;
+  gap: 12px;
+}
+label {
+  display: grid;
+  grid-template-columns: 56px 1fr;
+  align-items: center;
+  gap: 10px;
+  color: var(--muted);
+}
+input,
+select {
+  height: 30px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+}
+input:focus,
+select:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+.buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+}
+.spacer {
+  flex: 1;
+}
+button {
+  height: 30px;
+  padding: 0 14px;
+  border: 1px solid var(--border);
+  border-radius: 15px;
+  background: var(--bg);
+  color: var(--accent);
+  font: inherit;
+  font-weight: 500;
+}
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg);
+}
+[hidden] {
+  display: none !important;
+}

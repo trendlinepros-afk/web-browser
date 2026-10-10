@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'" />
+    <title>Edit bookmark</title>
+    <link rel="stylesheet" href="bookmark-editor.css" />
+  </head>
+  <body>
+    <form id="form">
+      <label>Name <input id="title" type="text" spellcheck="false" /></label>
+      <label id="url-row">URL <input id="url" type="text" spellcheck="false" /></label>
+      <label>Folder <select id="folder"></select></label>
+      <div class="buttons">
+        <button type="button" id="remove">Remove</button>
+        <span class="spacer"></span>
+        <button type="button" id="cancel">Cancel</button>
+        <button type="submit" id="save" class="primary">Done</button>
+      </div>
+    </form>
+    <script type="module" src="bookmark-editor.js"></script>
+  </body>
+</html>

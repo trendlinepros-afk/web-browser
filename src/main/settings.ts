@@ -12,6 +12,7 @@ export interface Settings {
   sleepPinnedTabs: boolean
   restoreSession: boolean
   checkForUpdatesOnStartup: boolean
+  showBookmarksBar: boolean
   blocking: {
     /** Block ads, trackers and known malware/scam domains. */
     enabled: boolean
@@ -41,6 +42,7 @@ const DEFAULTS: Settings = {
   sleepPinnedTabs: false,
   restoreSession: true,
   checkForUpdatesOnStartup: true,
+  showBookmarksBar: true,
   blocking: {
     enabled: true,
     cookieBanners: true,

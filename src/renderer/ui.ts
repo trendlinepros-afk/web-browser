@@ -1,5 +1,5 @@
 // Browser UI: tab strip + toolbar. Plain DOM, no framework; state is pushed from the main process.
-import type { TabInfo, UiApi, WindowState } from '../shared/types'
+import type { BookmarkBarState, BookmarkItem, OpenDisposition, TabInfo, UiApi, WindowState } from '../shared/types'
 
 declare global {
   interface Window {
@@ -21,6 +21,12 @@ const ICONS = {
   audio:
     '<svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05A4.47 4.47 0 0 0 16.5 12M14 3.23v2.06a7 7 0 0 1 0 13.42v2.06A9 9 0 0 0 14 3.23"/></svg>',
   shield: '<svg viewBox="0 0 24 24"><path d="M12 2 4 5v6.09c0 5.05 3.41 9.76 8 10.91 4.59-1.15 8-5.86 8-10.91V5zm0 2.18 6 2.25v4.66c0 4-2.55 7.7-6 8.83-3.45-1.13-6-4.82-6-8.83V6.43z"/><path d="M12 6.5 8 8v3.2c0 2.7 1.7 5.2 4 6.05z"/></svg>',
+  star: '<svg viewBox="0 0 24 24"><path d="m22 9.24-7.19-.62L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.63-7.03zM12 15.4l-3.76 2.27 1-4.28-3.32-2.88 4.38-.38L12 6.1l1.71 4.04 4.38.38-3.32 2.88 1 4.28z"/></svg>',
+  starFilled: '<svg viewBox="0 0 24 24"><path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>',
+  folder: '<svg viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8z"/></svg>',
+  globe:
+    '<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20m-1 17.93A8 8 0 0 1 4 12c0-.62.08-1.21.21-1.79L9 15v1a2 2 0 0 0 2 2zm6.9-2.54A2 2 0 0 0 16 16h-1v-3a1 1 0 0 0-1-1H8v-2h2a1 1 0 0 0 1-1V7h2a2 2 0 0 0 2-2v-.41A8 8 0 0 1 20 12c0 2.08-.8 3.97-2.1 5.39"/></svg>',
+  chevron: '<svg viewBox="0 0 24 24"><path d="M5.59 7.41 10.18 12l-4.59 4.59L7 18l6-6-6-6zM12.59 7.41 17.18 12l-4.59 4.59L14 18l6-6-6-6z"/></svg>',
   muted:
     '<svg viewBox="0 0 24 24"><path d="M16.5 12A4.5 4.5 0 0 0 14 7.97v2.21l2.45 2.45q.05-.3.05-.63m2.5 0q0 1.41-.54 2.64l1.51 1.51A8.8 8.8 0 0 0 21 12a9 9 0 0 0-7-8.77v2.06A7 7 0 0 1 19 12M4.27 3 3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a9 9 0 0 0 3.69-1.81L19.73 21 21 19.73l-9-9zM12 4 9.91 6.09 12 8.18z"/></svg>',
 }
@@ -37,6 +43,14 @@ const menuBtn = $<HTMLButtonElement>('menu')
 const newTabBtn = $<HTMLButtonElement>('new-tab')
 const mcpBadge = $<HTMLSpanElement>('mcp-badge')
 const shieldBtn = $<HTMLButtonElement>('shield')
+const starBtn = $<HTMLButtonElement>('star')
+const bookmarksBar = $<HTMLDivElement>('bookmarks-bar')
+const bmItems = $<HTMLDivElement>('bm-items')
+const bmEmpty = $<HTMLSpanElement>('bm-empty')
+const bmOverflow = $<HTMLButtonElement>('bm-overflow')
+const bmOther = $<HTMLButtonElement>('bm-other')
+bmOverflow.innerHTML = ICONS.chevron
+bmOther.insertAdjacentHTML('afterbegin', ICONS.folder)
 const extensionsEl = $<HTMLDivElement>('extensions')
 
 backBtn.innerHTML = ICONS.back
@@ -137,6 +151,14 @@ function render(): void {
   if (!editing) address.value = displayURL(tab?.url ?? '')
   mcpBadge.hidden = !state.mcpEnabled
   renderShield(tab)
+  const web = !!tab && /^(https?|file):/.test(tab.url)
+  starBtn.hidden = !web
+  const starred = !!tab?.bookmarked
+  if (starBtn.classList.contains('on') !== starred || !starBtn.innerHTML) {
+    starBtn.classList.toggle('on', starred)
+    starBtn.innerHTML = starred ? ICONS.starFilled : ICONS.star
+    starBtn.title = starred ? 'Edit bookmark (Ctrl+D)' : 'Bookmark this page (Ctrl+D)'
+  }
   renderExtensions(state.extensionPartition)
 }
 
@@ -230,6 +252,155 @@ addressForm.addEventListener('submit', (e) => {
   editing = false
   api.navigate(tab.id, address.value)
   address.blur()
+})
+
+// ---- Bookmarks bar ----------------------------------------------------------
+
+let bar: BookmarkBarState | null = null
+
+function bookmarkButton(item: BookmarkItem): HTMLButtonElement {
+  const btn = document.createElement('button')
+  btn.className = 'bm'
+  btn.type = 'button'
+  btn.dataset.id = item.id
+  btn.draggable = true
+  btn.title = item.folder ? item.title : `${item.title}\n${item.url ?? ''}`
+  if (item.folder) {
+    btn.dataset.folder = '1'
+    btn.innerHTML = ICONS.folder
+  } else if (item.favicon) {
+    const img = Object.assign(document.createElement('img'), { src: item.favicon, alt: '' })
+    img.onerror = () => img.replaceWith(Object.assign(document.createElement('span'), { innerHTML: ICONS.globe }).firstChild!)
+    btn.append(img)
+  } else {
+    btn.innerHTML = ICONS.globe
+  }
+  btn.append(Object.assign(document.createElement('span'), { className: 'title', textContent: item.title }))
+  return btn
+}
+
+function renderBookmarks(): void {
+  if (!bar) return
+  bookmarksBar.hidden = !bar.visible
+  if (!bar.visible) return
+  bmItems.replaceChildren(...bar.items.map(bookmarkButton))
+  bmItems.hidden = bar.items.length === 0
+  bmEmpty.hidden = bar.items.length > 0
+  bmOther.hidden = bar.otherCount === 0
+  bmOther.dataset.id = 'other'
+  layoutBookmarks()
+}
+
+/** Hides items that don't fit and shows the » button for them. */
+function layoutBookmarks(): void {
+  if (!bar?.visible) return
+  const buttons = [...bmItems.children] as HTMLButtonElement[]
+  bmOverflow.hidden = true
+  for (const b of buttons) b.classList.remove('hidden-overflow')
+  const fits = (b: HTMLElement) => b.getBoundingClientRect().right <= bmItems.getBoundingClientRect().right + 0.5
+  let overflow = false
+  for (const b of buttons) {
+    if (!overflow && !fits(b)) overflow = true
+    b.classList.toggle('hidden-overflow', overflow)
+  }
+  if (overflow) {
+    // Showing the » button narrows the row: hide more items if they no longer fit.
+    bmOverflow.hidden = false
+    const visible = buttons.filter((b) => !b.classList.contains('hidden-overflow'))
+    while (visible.length && !fits(visible[visible.length - 1])) visible.pop()!.classList.add('hidden-overflow')
+  }
+}
+
+new ResizeObserver(() => layoutBookmarks()).observe(bmItems)
+
+function dispositionFor(e: MouseEvent): OpenDisposition {
+  if (e.button === 1 || e.ctrlKey || e.metaKey) return e.shiftKey ? 'foreground-tab' : 'background-tab'
+  return 'current'
+}
+
+function openMenuBelow(btn: HTMLElement, id: string): void {
+  const r = btn.getBoundingClientRect()
+  btn.classList.add('open')
+  api.showBookmarkFolder(id, r.left, r.bottom)
+  // Native menus block until closed; clear the highlight on the next interaction.
+  setTimeout(() => btn.classList.remove('open'), 0)
+}
+
+bmItems.addEventListener('click', (e) => {
+  const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('.bm')
+  if (!btn?.dataset.id) return
+  if (btn.dataset.folder) openMenuBelow(btn, btn.dataset.id)
+  else api.openBookmark(btn.dataset.id, dispositionFor(e))
+})
+bmItems.addEventListener('auxclick', (e) => {
+  const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('.bm')
+  if (btn?.dataset.id && e.button === 1 && !btn.dataset.folder) api.openBookmark(btn.dataset.id, 'background-tab')
+})
+bookmarksBar.addEventListener('contextmenu', (e) => {
+  e.preventDefault()
+  const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('.bm')
+  api.showBookmarkContextMenu(btn?.dataset.id ?? null, e.clientX, e.clientY)
+})
+bmOther.onclick = () => openMenuBelow(bmOther, 'other')
+$('bm-import').onclick = () => api.importFirefoxBookmarks()
+bmOverflow.onclick = () => {
+  const ids = ([...bmItems.querySelectorAll<HTMLButtonElement>('.bm.hidden-overflow')] as HTMLButtonElement[]).map((b) => b.dataset.id!)
+  const r = bmOverflow.getBoundingClientRect()
+  api.showBookmarkOverflow(ids, r.left, r.bottom)
+}
+
+// Drag to reorder, or onto a folder to move into it.
+let dragId: string | null = null
+const clearDrop = () => bmItems.querySelectorAll('.drop-before,.drop-after,.drop-into').forEach((el) => el.classList.remove('drop-before', 'drop-after', 'drop-into'))
+
+function dropTarget(e: DragEvent): { btn: HTMLButtonElement; zone: 'before' | 'after' | 'into' } | null {
+  const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('.bm')
+  if (!btn || btn.dataset.id === dragId) return null
+  const r = btn.getBoundingClientRect()
+  const x = (e.clientX - r.left) / r.width
+  if (btn.dataset.folder && x > 0.25 && x < 0.75) return { btn, zone: 'into' }
+  return { btn, zone: x < 0.5 ? 'before' : 'after' }
+}
+
+bmItems.addEventListener('dragstart', (e) => {
+  const btn = (e.target as HTMLElement).closest<HTMLButtonElement>('.bm')
+  if (!btn?.dataset.id) return
+  dragId = btn.dataset.id
+  e.dataTransfer!.effectAllowed = 'move'
+  e.dataTransfer!.setData('text/plain', btn.title)
+})
+bmItems.addEventListener('dragover', (e) => {
+  if (!dragId) return
+  const target = dropTarget(e)
+  clearDrop()
+  if (!target) return
+  e.preventDefault()
+  target.btn.classList.add(`drop-${target.zone}`)
+})
+bmItems.addEventListener('dragleave', clearDrop)
+bmItems.addEventListener('dragend', () => {
+  dragId = null
+  clearDrop()
+})
+bmItems.addEventListener('drop', (e) => {
+  const target = dropTarget(e)
+  clearDrop()
+  if (!dragId || !target) return
+  e.preventDefault()
+  if (target.zone === 'into') {
+    api.moveBookmark(dragId, target.btn.dataset.id!, Number.MAX_SAFE_INTEGER)
+  } else {
+    const index = [...bmItems.children].indexOf(target.btn) + (target.zone === 'after' ? 1 : 0)
+    api.moveBookmark(dragId, 'bar', index)
+  }
+  dragId = null
+})
+
+starBtn.onclick = () => api.bookmarkActiveTab()
+
+api.onBookmarks((b) => {
+  bar = b
+  renderBookmarks()
 })
 
 api.onFocusAddressBar(() => {

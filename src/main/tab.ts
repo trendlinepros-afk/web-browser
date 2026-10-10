@@ -166,6 +166,7 @@ export class Tab {
       controlled: this.controlled,
       blocked: this.blockedCount,
       blockingActive: !!this.url && this.window.browser.blocker.activeFor(this.url),
+      bookmarked: this.window.browser.bookmarks.isBookmarked(this.url),
     }
   }
 
@@ -224,6 +225,8 @@ export class Tab {
     })
     wc.on('page-favicon-updated', (_e, favicons) => {
       this.favicon = favicons[0] ?? null
+      // Bookmarks keep a local copy of the icon (imported ones may not have one yet).
+      void this.window.browser.bookmarks.captureFavicon(this.url, this.favicon, this.session)
       changed()
     })
     wc.on('did-start-navigation', (details) => {

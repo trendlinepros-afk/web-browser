@@ -94,6 +94,7 @@ function main(): void {
     sleeper?.stop()
     mcp?.stop().catch(() => {})
     flushSettings()
+    browser?.bookmarks.flush()
   })
 
   app.on('window-all-closed', () => {

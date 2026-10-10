@@ -7,6 +7,7 @@ import type { TabSleeper } from './tab-sleeper'
 import { getSettings, updateSettings } from './settings'
 import { checkForUpdates } from './updater'
 import { AdBlocker } from './blocker'
+import { BookmarkUi } from './bookmark-ui'
 import { CHROME_WEB_STORE_URL, LASTPASS_URL, updateAllExtensions } from './extensions'
 
 const REPO_URL = 'https://github.com/trendlinepros-afk/web-browser'
@@ -28,6 +29,8 @@ const SLEEP_OPTIONS: [string, number][] = [
 ]
 
 export class Menus {
+  readonly bookmarkUi: BookmarkUi
+
   constructor(
     private readonly browser: Browser,
     private readonly mcp: BrowserMcpServer,
@@ -36,6 +39,8 @@ export class Menus {
     browser.onShowAppMenu = (w, x, y) => this.showAppMenu(w, x, y)
     browser.onShowTabMenu = (w, tab) => this.showTabMenu(w, tab)
     browser.onShowShieldMenu = (w, x, y) => this.showShieldMenu(w, x, y)
+    this.bookmarkUi = new BookmarkUi(browser)
+    browser.onBookmarkCommand = (w, name, args) => this.bookmarkUi.handle(w, name, args)
   }
 
   private current(): BrowserWindowController | undefined {
@@ -71,6 +76,9 @@ export class Menus {
             click: () => this.browser.createWindow({ incognito: true }),
           },
           { label: 'Reopen Closed Tab', accelerator: 'CmdOrCtrl+Shift+T', click: this.withWindow((w) => this.browser.reopenClosedTab(w)) },
+          { type: 'separator' },
+          { label: 'Bookmark This Page', accelerator: 'CmdOrCtrl+D', click: this.withWindow((w) => this.bookmarkUi.bookmarkActiveTab(w)) },
+          { label: 'Show Bookmarks Bar', accelerator: 'CmdOrCtrl+Shift+B', click: () => this.bookmarkUi.toggleBar() },
           { type: 'separator' },
           { label: 'Open Location', accelerator: 'CmdOrCtrl+L', click: this.withWindow((w) => w.focusAddressBar()) },
           { label: 'Open Location', accelerator: 'Alt+D', visible: false, click: this.withWindow((w) => w.focusAddressBar()) },
@@ -166,6 +174,7 @@ export class Menus {
       { label: 'New window', accelerator: 'CmdOrCtrl+N', click: () => this.browser.createWindow() },
       { label: 'New incognito window', accelerator: 'CmdOrCtrl+Shift+N', click: () => this.browser.createWindow({ incognito: true }) },
       { type: 'separator' },
+      { label: 'Bookmarks', submenu: this.bookmarkUi.appMenu(w) },
       {
         label: 'Extensions',
         submenu: [
