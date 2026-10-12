@@ -70,7 +70,6 @@ function main(): void {
   app.whenReady().then(async () => {
     session.defaultSession.setUserAgent(chromeUserAgent())
     browser = new Browser()
-    browser.profile.setUserAgent(chromeUserAgent())
 
     // Extensions must be ready before tabs exist so content scripts inject into restored tabs.
     try {

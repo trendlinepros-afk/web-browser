@@ -41,6 +41,32 @@ function describeMedia(details: Electron.PermissionRequest | Electron.MediaAcces
   return ASK.media
 }
 
+/** Web permission names (navigator.permissions) for each Electron permission we prompt for. */
+const WEB_NAMES: Record<string, string[]> = {
+  media: ['camera', 'microphone'],
+  geolocation: ['geolocation'],
+  notifications: ['notifications'],
+  midi: ['midi'],
+  'clipboard-read': ['clipboard-read'],
+  'idle-detection': ['idle-detection'],
+  'window-management': ['window-management'],
+  'storage-access': ['storage-access'],
+}
+
+/**
+ * Permissions this site hasn't been asked about yet. Electron can only report "granted" or
+ * "denied", but a browser reports "prompt" until you decide, and an all-denied profile is a
+ * classic bot signature. The page preload reports these as "prompt"; asking still shows our dialog.
+ */
+export function undecidedPermissions(url: string): string[] {
+  const origin = originOf(url)
+  const out: string[] = []
+  for (const [permission, names] of Object.entries(WEB_NAMES)) {
+    if (!decisions.has(`${origin}|${permission}`)) out.push(...names)
+  }
+  return out
+}
+
 export function configureSession(ses: Session, browser: Browser): void {
   ses.setPermissionRequestHandler(async (wc: WebContents | null, permission, callback, details) => {
     const origin = originOf(details.requestingUrl ?? wc?.getURL() ?? '')

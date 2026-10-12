@@ -2,6 +2,8 @@ import { app, ipcMain, type Session } from 'electron'
 import path from 'node:path'
 import type { AdBlocker } from './blocker'
 import { getSettings } from './settings'
+import { acceptLanguages, addClientHints, learnFromRenderer, needsLearning, recordAcceptCh } from './client-hints'
+import { undecidedPermissions } from './permissions'
 
 /**
  * Chromium features that only exist to serve Google's ad business ("Privacy Sandbox": interest-based
@@ -35,29 +37,6 @@ export function applyCommandLineHardening(): void {
   app.commandLine.appendSwitch('process-per-site')
 }
 
-/** Brands reported to pages, matching what a stock Chromium build sends. */
-export function uaBrands(): { brand: string; version: string }[] {
-  const major = process.versions.chrome.split('.')[0]
-  return [
-    { brand: 'Chromium', version: major },
-    { brand: 'Not.A/Brand', version: '99' },
-  ]
-}
-
-function secChUa(): string {
-  return uaBrands()
-    .map((b) => `"${b.brand}";v="${b.version}"`)
-    .join(', ')
-}
-
-function secChPlatform(): string {
-  return process.platform === 'win32' ? '"Windows"' : process.platform === 'darwin' ? '"macOS"' : '"Linux"'
-}
-
-function isPotentiallyTrustworthy(url: string): boolean {
-  return url.startsWith('https:') || url.startsWith('wss:') || /^https?:\/\/(localhost|127\.0\.0\.1|\[::1\])[:/]/.test(url)
-}
-
 let ipcRegistered = false
 
 /**
@@ -67,16 +46,21 @@ let ipcRegistered = false
 export function configureNetwork(ses: Session, blocker: AdBlocker): void {
   if (!ipcRegistered) {
     ipcRegistered = true
-    // Read synchronously by the page preload before any page script runs.
-    ipcMain.on('privacy:config', (event) => {
+    // Read synchronously by the page preload in every frame, before any page script runs.
+    ipcMain.on('privacy:config', (event, origin: string) => {
       event.returnValue = {
-        brands: uaBrands(),
-        fullVersion: process.versions.chrome,
         gpc: getSettings().privacy.globalPrivacyControl,
+        languages: acceptLanguages().split(','),
+        undecidedPermissions: undecidedPermissions(origin),
+        reportUaData: needsLearning(),
       }
+    })
+    ipcMain.on('privacy:ua-data', (_event, values: Record<string, unknown>) => {
+      if (needsLearning() && values && typeof values === 'object') learnFromRenderer(values)
     })
   }
 
+  ses.setUserAgent(ses.getUserAgent(), acceptLanguages())
   ses.registerPreloadScript({ id: 'privacy', type: 'frame', filePath: path.join(__dirname, '..', 'preload', 'page-preload.js') })
   blocker.enableInSession(ses)
 
@@ -87,17 +71,14 @@ export function configureNetwork(ses: Session, blocker: AdBlocker): void {
   ses.webRequest.onBeforeSendHeaders({ urls: ['<all_urls>'] }, (details, callback) => {
     const headers = details.requestHeaders
     if (getSettings().privacy.globalPrivacyControl) headers['Sec-GPC'] = '1'
-    // Client hints, like Chromium sends them (secure contexts only). Electron omits them,
-    // which makes this browser stand out and confuses sites that check for Chromium.
-    if (isPotentiallyTrustworthy(details.url) && !('sec-ch-ua' in headers) && !('Sec-CH-UA' in headers)) {
-      headers['sec-ch-ua'] = secChUa()
-      headers['sec-ch-ua-mobile'] = '?0'
-      headers['sec-ch-ua-platform'] = secChPlatform()
-    }
+    addClientHints(ses, details.url, headers)
     callback({ requestHeaders: headers })
   })
 
   ses.webRequest.onHeadersReceived({ urls: ['<all_urls>'] }, (details, callback) => {
+    if (details.resourceType === 'mainFrame' || details.resourceType === 'subFrame') {
+      recordAcceptCh(ses, details.url, details.responseHeaders)
+    }
     callback(blocker.onHeadersReceived(details))
   })
 }

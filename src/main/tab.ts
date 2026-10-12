@@ -201,6 +201,9 @@ export class Tab {
             backgroundThrottling: true,
             spellcheck: true,
             scrollBounce: true,
+            // Run the page preload (bot-check fixes, GPC) in iframes too. With the sandbox on,
+            // this does not give frames any Node.js access despite the option's name.
+            nodeIntegrationInSubFrames: true,
           },
         })
     view.setBackgroundColor('#ffffff')
