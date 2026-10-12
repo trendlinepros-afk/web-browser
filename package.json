@@ -1,7 +1,7 @@
 {
   "name": "zirtola",
   "productName": "Zirtola",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Zirtola: a fast, private, lightweight Chromium-based browser with Chrome extension support and a built-in MCP server.",
   "main": "dist/main/main.js",
   "author": "trendlinepros-afk",

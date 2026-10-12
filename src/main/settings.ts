@@ -13,6 +13,7 @@ export interface Settings {
   restoreSession: boolean
   checkForUpdatesOnStartup: boolean
   showBookmarksBar: boolean
+  theme: 'system' | 'dark' | 'light'
   /** The first-run "make default browser" question has been asked. */
   askedDefaultBrowser: boolean
   blocking: {
@@ -45,6 +46,7 @@ const DEFAULTS: Settings = {
   restoreSession: true,
   checkForUpdatesOnStartup: true,
   showBookmarksBar: true,
+  theme: 'system',
   askedDefaultBrowser: false,
   blocking: {
     enabled: true,

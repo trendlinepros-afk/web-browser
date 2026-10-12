@@ -1,0 +1,73 @@
+/* Zirtola design tokens. Shared by the browser UI, menus/settings overlay and dialogs.
+ * Dark "ink" is the signature look; light follows Windows when it is in light mode. */
+
+:root {
+  --font: 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
+  --font-display: 'Segoe UI Variable Display', 'Segoe UI Variable Text', 'Segoe UI', system-ui, sans-serif;
+
+  --grad: linear-gradient(135deg, #6a5cff 0%, #3d8bff 52%, #19d3e6 100%);
+  --grad-soft: linear-gradient(135deg, rgba(106, 92, 255, 0.18), rgba(25, 211, 230, 0.14));
+
+  /* Light */
+  --bg: #eceff8;
+  --bg-elev: #ffffff;
+  --raised: #ffffff;
+  --raised-hover: #f4f5fc;
+  --hover: rgba(40, 48, 110, 0.07);
+  --press: rgba(40, 48, 110, 0.12);
+  --line: rgba(30, 36, 90, 0.1);
+  --line-strong: rgba(30, 36, 90, 0.18);
+  --fg: #161a2e;
+  --muted: #5a6188;
+  --faint: #8d93b4;
+  --accent: #5b4cf0;
+  --accent-fg: #ffffff;
+  --danger: #d6345a;
+  --ok: #138a6c;
+  --shadow: 0 12px 32px rgba(23, 28, 70, 0.16), 0 2px 6px rgba(23, 28, 70, 0.08);
+  --page-bg: #ffffff;
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #0a0d1a;
+    --bg-elev: #12162b;
+    --raised: #181d36;
+    --raised-hover: #1f2544;
+    --hover: rgba(160, 172, 255, 0.08);
+    --press: rgba(160, 172, 255, 0.14);
+    --line: rgba(160, 172, 255, 0.1);
+    --line-strong: rgba(160, 172, 255, 0.2);
+    --fg: #e9ebf8;
+    --muted: #9198bd;
+    --faint: #626a94;
+    --accent: #8d84ff;
+    --accent-fg: #0a0d1a;
+    --danger: #ff6b8b;
+    --ok: #4fd1ae;
+    --shadow: 0 16px 40px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.35);
+    --page-bg: #12162b;
+    color-scheme: dark;
+  }
+}
+
+/* Private (incognito) windows: a violet night palette so they're unmistakable. */
+body.incognito {
+  --grad: linear-gradient(135deg, #b84cff 0%, #6a5cff 100%);
+  --grad-soft: linear-gradient(135deg, rgba(184, 76, 255, 0.2), rgba(106, 92, 255, 0.16));
+  --bg: #0e0918;
+  --bg-elev: #160f26;
+  --raised: #1d1431;
+  --raised-hover: #261a3f;
+  --hover: rgba(214, 170, 255, 0.08);
+  --press: rgba(214, 170, 255, 0.14);
+  --line: rgba(214, 170, 255, 0.11);
+  --line-strong: rgba(214, 170, 255, 0.2);
+  --fg: #efe8fb;
+  --muted: #a598c4;
+  --faint: #6f6290;
+  --accent: #c48bff;
+  --accent-fg: #0e0918;
+  color-scheme: dark;
+}

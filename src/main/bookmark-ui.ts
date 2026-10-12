@@ -1,4 +1,4 @@
-import { BrowserWindow, dialog, ipcMain, Menu, nativeImage, type MenuItemConstructorOptions } from 'electron'
+import { BrowserWindow, dialog, ipcMain, nativeImage, nativeTheme, type MenuItemConstructorOptions } from 'electron'
 import fs from 'node:fs'
 import path from 'node:path'
 import type { OpenDisposition } from '../shared/types'
@@ -113,13 +113,13 @@ export class BookmarkUi {
   private showFolder(w: BrowserWindowController, id: string, x: number, y: number): void {
     const folder = this.store.find(id)?.node
     if (!folder) return
-    Menu.buildFromTemplate(this.folderMenu(w, folder)).popup({ window: w.win, x: Math.round(x), y: Math.round(y) })
+    w.popup.menu(this.folderMenu(w, folder), x, y)
   }
 
   private showOverflow(w: BrowserWindowController, ids: string[], x: number, y: number): void {
     const nodes = ids.map((id) => this.store.find(id)?.node).filter((n): n is BookmarkNode => !!n)
     const pseudo: BookmarkNode = { id: '', type: 'folder', title: '', children: nodes, dateAdded: 0 }
-    Menu.buildFromTemplate(this.folderMenu(w, pseudo)).popup({ window: w.win, x: Math.round(x), y: Math.round(y) })
+    w.popup.menu(this.folderMenu(w, pseudo), x, y)
   }
 
   private showContextMenu(w: BrowserWindowController, id: string | null, x: number, y: number): void {
@@ -132,7 +132,7 @@ export class BookmarkUi {
       items.push(
         { label: 'Open in new tab', click: () => this.openNode(w, node, 'background-tab') },
         { label: 'Open in new window', click: () => this.browser.createWindow({ url: node.url }) },
-        { label: 'Open in incognito window', click: () => this.browser.createWindow({ incognito: true, url: node.url }) },
+        { label: 'Open in private window', click: () => this.browser.createWindow({ incognito: true, url: node.url }) },
         { type: 'separator' },
         { label: 'Edit…', click: () => this.edit(w, node.id) },
       )
@@ -140,7 +140,7 @@ export class BookmarkUi {
       items.push(
         { label: 'Open all in new tabs', click: () => this.openAll(w, node) },
         { label: 'Open all in new window', click: () => this.openAll(w, node, { newWindow: true }) },
-        { label: 'Open all in incognito window', click: () => this.openAll(w, node, { incognito: true }) },
+        { label: 'Open all in private window', click: () => this.openAll(w, node, { incognito: true }) },
         { type: 'separator' },
         { label: 'Rename…', click: () => this.edit(w, node.id) },
       )
@@ -169,7 +169,7 @@ export class BookmarkUi {
       { type: 'separator' },
       ...this.managementItems(w),
     )
-    Menu.buildFromTemplate(items).popup({ window: w.win, x: Math.round(x), y: Math.round(y) })
+    w.popup.menu(items, x, y)
   }
 
   /** Shared by the bar's context menu and the app menu. */
@@ -251,7 +251,7 @@ export class BookmarkUi {
       show: false,
       title: opts.isNew ? (isFolder ? 'New folder' : 'Bookmark added') : isFolder ? 'Rename folder' : 'Edit bookmark',
       autoHideMenuBar: true,
-      backgroundColor: '#ffffff',
+      backgroundColor: nativeTheme.shouldUseDarkColors ? '#12162b' : '#ffffff',
       webPreferences: {
         preload: path.join(__dirname, '..', 'preload', 'editor-preload.js'),
         sandbox: true,

@@ -219,9 +219,24 @@ history, lazy session restore across restarts, and incognito cookie/storage isol
 - [x] Default browser: the installer registers Zirtola under Settings › Default apps (`build/installer.nsh`); one-time
       offer on first run plus a menu item; opens links and .html files passed by Windows
 
+### Stage 1.8: Zirtola's own look (done)
+Goal: nothing should feel like Chrome or Firefox. Same two-row layout (tabs above, address below), new identity:
+- **Palette** (`renderer/theme.css`, shared by UI, menus and dialogs): dark "ink" surfaces with a soft glow and the
+  indigo→cyan gradient from the icon; a light variant follows Windows; violet palette for private windows.
+  Theme setting: System / Dark / Light.
+- **Shapes**: floating rounded-rectangle tabs (active tab has a gradient edge), a floating address field that
+  shows the site's host prominently with a gradient focus ring, chip-style bookmarks, outline icon set, ⚙-style
+  sliders button instead of Chrome's ⋮, pages shown as a rounded card inset from the window edge.
+- **Menus**: every menu (⚙, page right-click, tab, bookmarks, shield, extension items) is drawn by Zirtola in
+  one shared transparent overlay (`popup.ts`, `renderer/overlay.*`), not by the OS. Keyboard navigable,
+  submenus, checkmarks. The overlay shares the UI's renderer process, so menus cost ~no memory.
+- **Settings panel** (⚙ › Settings or Ctrl+,): a slide-in sheet with sections (Appearance, Search, Speed &
+  memory, Privacy & blocking, Startup, Bookmarks, Extensions, Claude, Updates) replacing nested menus.
+- Wording: "Private window" instead of Chrome's "Incognito".
+
 ### Stage 2: UI & everyday features
 Design target: Windows 11 (Fluent): rounded corners, Mica-style surfaces, Segoe UI Variable, accent color.
-- Visual design pass: compact tab strip, light and dark themes, smooth tab animations
+- Tab animations, tab drag-reorder; themed native dialogs (permission prompts, update notices)
 - Find in page (Ctrl+F), zoom per site, print, reopen closed tab, tab drag-reorder
 - History, bookmarks (+ bookmark bar), address bar suggestions (history, bookmarks, search)
 - Downloads panel

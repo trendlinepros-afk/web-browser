@@ -1,7 +1,7 @@
 import { nativeTheme, systemPreferences, type BrowserWindowConstructorOptions } from 'electron'
 
 /** Height of the tab strip, which doubles as the title bar. Must match --strip-h in styles.css. */
-export const TITLE_BAR_HEIGHT = 36
+export const TITLE_BAR_HEIGHT = 40
 
 /** Platform the UI is laid out for (overridable for testing a Windows layout elsewhere). */
 export const uiPlatform: NodeJS.Platform = (process.env.ZIRTOLA_UI_PLATFORM as NodeJS.Platform) || process.platform
@@ -10,8 +10,9 @@ export const uiPlatform: NodeJS.Platform = (process.env.ZIRTOLA_UI_PLATFORM as N
 export const integratedTitleBar = uiPlatform === 'win32' || uiPlatform === 'darwin'
 
 function stripColors(incognito: boolean): { color: string; symbolColor: string } {
-  const dark = incognito || nativeTheme.shouldUseDarkColors
-  return dark ? { color: '#202124', symbolColor: '#e8eaed' } : { color: '#dee1e6', symbolColor: '#202124' }
+  // Must match --bg in renderer/theme.css.
+  if (incognito) return { color: '#0e0918', symbolColor: '#efe8fb' }
+  return nativeTheme.shouldUseDarkColors ? { color: '#0a0d1a', symbolColor: '#e9ebf8' } : { color: '#eceff8', symbolColor: '#161a2e' }
 }
 
 /** Frame options: on Windows the native minimize/maximize/close buttons (with Snap Layouts) sit over the tab strip. */

@@ -73,7 +73,7 @@ export interface UiApi {
   stop(tabId: number): void
   toggleMute(tabId: number): void
   showAppMenu(x: number, y: number): void
-  showTabMenu(tabId: number): void
+  showTabMenu(tabId: number, x: number, y: number): void
   showShieldMenu(x: number, y: number): void
   /** Star button / Ctrl+D: bookmark the active page, or edit its bookmark. */
   bookmarkActiveTab(): void
@@ -89,4 +89,47 @@ export interface UiApi {
   onState(cb: (state: WindowState) => void): void
   onFocusAddressBar(cb: () => void): void
   ready(): void
+}
+
+// ---- Zirtola popups (custom menus and the settings panel) ----------------------
+
+export interface PopupItem {
+  id: number
+  type: 'normal' | 'separator' | 'checkbox' | 'radio' | 'submenu'
+  label: string
+  sublabel?: string
+  accelerator?: string
+  checked?: boolean
+  enabled: boolean
+  /** data: URL */
+  icon?: string
+  /** Destructive action (shown in red). */
+  danger?: boolean
+  /** Informational line, not clickable. */
+  note?: boolean
+  children?: PopupItem[]
+}
+
+export interface PopupModifiers {
+  ctrl: boolean
+  shift: boolean
+  meta: boolean
+  alt: boolean
+}
+
+export type SettingsControl =
+  | { kind: 'toggle'; key: string; label: string; description?: string; value: boolean }
+  | { kind: 'select'; key: string; label: string; description?: string; value: string; options: { value: string; label: string }[] }
+  | { kind: 'button'; action: string; label: string; description?: string; style?: 'primary' | 'danger' }
+  | { kind: 'info'; label: string; value: string }
+
+export interface SettingsSection {
+  id: string
+  title: string
+  controls: SettingsControl[]
+}
+
+export interface SettingsModel {
+  version: string
+  sections: SettingsSection[]
 }

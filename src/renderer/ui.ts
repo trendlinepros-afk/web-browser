@@ -9,26 +9,28 @@ declare global {
 
 const api = window.browser
 
+/** Zirtola's own outline icon set (stroke drawn via CSS). */
+const svg = (d: string) => `<svg viewBox="0 0 24 24">${d}</svg>`
 const ICONS = {
-  back: '<svg viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20z"/></svg>',
-  forward: '<svg viewBox="0 0 24 24"><path d="M12 4l-1.41 1.41L16.17 11H4v2h12.17l-5.58 5.59L12 20l8-8z"/></svg>',
-  reload:
-    '<svg viewBox="0 0 24 24"><path d="M17.65 6.35A7.96 7.96 0 0 0 12 4a8 8 0 1 0 7.73 10h-2.08A6 6 0 1 1 12 6c1.66 0 3.14.69 4.22 1.78L13 11h7V4z"/></svg>',
-  stop: '<svg viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>',
-  plus: '<svg viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6z"/></svg>',
-  menu: '<svg viewBox="0 0 24 24"><path d="M12 8a2 2 0 1 0 0-4 2 2 0 0 0 0 4m0 2a2 2 0 1 0 0 4 2 2 0 0 0 0-4m0 6a2 2 0 1 0 0 4 2 2 0 0 0 0-4"/></svg>',
-  close: '<svg viewBox="0 0 24 24"><path d="M19 6.41 17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></svg>',
-  audio:
-    '<svg viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9zm13.5 3A4.5 4.5 0 0 0 14 7.97v8.05A4.47 4.47 0 0 0 16.5 12M14 3.23v2.06a7 7 0 0 1 0 13.42v2.06A9 9 0 0 0 14 3.23"/></svg>',
-  shield: '<svg viewBox="0 0 24 24"><path d="M12 2 4 5v6.09c0 5.05 3.41 9.76 8 10.91 4.59-1.15 8-5.86 8-10.91V5zm0 2.18 6 2.25v4.66c0 4-2.55 7.7-6 8.83-3.45-1.13-6-4.82-6-8.83V6.43z"/><path d="M12 6.5 8 8v3.2c0 2.7 1.7 5.2 4 6.05z"/></svg>',
-  star: '<svg viewBox="0 0 24 24"><path d="m22 9.24-7.19-.62L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21 12 17.27 18.18 21l-1.63-7.03zM12 15.4l-3.76 2.27 1-4.28-3.32-2.88 4.38-.38L12 6.1l1.71 4.04 4.38.38-3.32 2.88 1 4.28z"/></svg>',
-  starFilled: '<svg viewBox="0 0 24 24"><path d="M12 17.27 18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z"/></svg>',
-  folder: '<svg viewBox="0 0 24 24"><path d="M10 4H4c-1.1 0-2 .9-2 2v12c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2h-8z"/></svg>',
-  globe:
-    '<svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20m-1 17.93A8 8 0 0 1 4 12c0-.62.08-1.21.21-1.79L9 15v1a2 2 0 0 0 2 2zm6.9-2.54A2 2 0 0 0 16 16h-1v-3a1 1 0 0 0-1-1H8v-2h2a1 1 0 0 0 1-1V7h2a2 2 0 0 0 2-2v-.41A8 8 0 0 1 20 12c0 2.08-.8 3.97-2.1 5.39"/></svg>',
-  chevron: '<svg viewBox="0 0 24 24"><path d="M5.59 7.41 10.18 12l-4.59 4.59L7 18l6-6-6-6zM12.59 7.41 17.18 12l-4.59 4.59L14 18l6-6-6-6z"/></svg>',
-  muted:
-    '<svg viewBox="0 0 24 24"><path d="M16.5 12A4.5 4.5 0 0 0 14 7.97v2.21l2.45 2.45q.05-.3.05-.63m2.5 0q0 1.41-.54 2.64l1.51 1.51A8.8 8.8 0 0 0 21 12a9 9 0 0 0-7-8.77v2.06A7 7 0 0 1 19 12M4.27 3 3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06a9 9 0 0 0 3.69-1.81L19.73 21 21 19.73l-9-9zM12 4 9.91 6.09 12 8.18z"/></svg>',
+  back: svg('<path d="M14.5 5.5 8 12l6.5 6.5"/>'),
+  forward: svg('<path d="M9.5 5.5 16 12l-6.5 6.5"/>'),
+  reload: svg('<path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3L19.5 9"/><path d="M19.5 4.5V9H15"/>'),
+  stop: svg('<path d="M7 7l10 10M17 7 7 17"/>'),
+  plus: svg('<path d="M12 5.5v13M5.5 12h13"/>'),
+  menu: svg('<path d="M4 7.5h9M17 7.5h3M4 16.5h3M11 16.5h9"/><circle cx="15" cy="7.5" r="2"/><circle cx="9" cy="16.5" r="2"/>'),
+  close: svg('<path d="M7 7l10 10M17 7 7 17"/>'),
+  audio: svg('<path d="M4.5 9.5v5h3.5l4.5 4v-13L8 9.5z"/><path d="M16 9.5a3.5 3.5 0 0 1 0 5M18.5 7a7 7 0 0 1 0 10"/>'),
+  muted: svg('<path d="M4.5 9.5v5h3.5l4.5 4v-13L8 9.5z"/><path d="m16.5 10 4 4M20.5 10l-4 4"/>'),
+  shield: svg('<path d="M12 3.5 18.5 6v5.3c0 4.2-2.8 7.8-6.5 9.2-3.7-1.4-6.5-5-6.5-9.2V6z"/><path d="m9.2 12 2 2 3.8-3.9"/>'),
+  shieldOff: svg('<path d="M12 3.5 18.5 6v5.3c0 4.2-2.8 7.8-6.5 9.2-3.7-1.4-6.5-5-6.5-9.2V6z"/><path d="M9.5 9.5l5 5M14.5 9.5l-5 5"/>'),
+  star: svg('<path d="m12 4 2.4 4.9 5.4.8-3.9 3.8.9 5.4L12 16.3l-4.8 2.6.9-5.4-3.9-3.8 5.4-.8z"/>'),
+  folder: svg('<path d="M4 7.5a2 2 0 0 1 2-2h3.6l2 2H18a2 2 0 0 1 2 2V17a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2z"/>'),
+  globe: svg('<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.4 2.4 3.4 5.3 3.4 8.5s-1 6.1-3.4 8.5c-2.4-2.4-3.4-5.3-3.4-8.5s1-6.1 3.4-8.5"/>'),
+  chevron: svg('<path d="m7 7 5 5-5 5M13 7l5 5-5 5"/>'),
+  lock: svg('<rect x="5.5" y="10.5" width="13" height="9" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/>'),
+  warn: svg('<path d="M12 4.5 20.5 19h-17z"/><path d="M12 10v4M12 16.8v.2"/>'),
+  search: svg('<circle cx="11" cy="11" r="6"/><path d="m19.5 19.5-4-4"/>'),
+  page: svg('<path d="M7 3.5h7l4 4V20a.5.5 0 0 1-.5.5h-10.5a.5.5 0 0 1-.5-.5V4a.5.5 0 0 1 .5-.5"/><path d="M14 3.5V8h4"/>'),
 }
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T
@@ -52,6 +54,8 @@ const bmOther = $<HTMLButtonElement>('bm-other')
 bmOverflow.innerHTML = ICONS.chevron
 bmOther.insertAdjacentHTML('afterbegin', ICONS.folder)
 const extensionsEl = $<HTMLDivElement>('extensions')
+const siteIcon = $<HTMLSpanElement>('site-icon')
+const addressDisplay = $<HTMLDivElement>('address-display')
 
 backBtn.innerHTML = ICONS.back
 forwardBtn.innerHTML = ICONS.forward
@@ -61,6 +65,7 @@ newTabBtn.innerHTML = ICONS.plus
 
 const params = new URLSearchParams(location.search)
 const incognito = params.get('incognito') === '1'
+if (incognito) address.placeholder = 'Private: nothing you do here is saved'
 document.body.classList.add(`platform-${params.get('platform') ?? 'unknown'}`, `frame-${params.get('frame') ?? 'native'}`)
 document.body.classList.toggle('incognito', incognito)
 $('incognito-badge').hidden = !incognito
@@ -151,6 +156,7 @@ function render(): void {
   reloadBtn.innerHTML = tab?.loading ? ICONS.stop : ICONS.reload
   reloadBtn.title = tab?.loading ? 'Stop loading' : 'Reload (Ctrl+R)'
   if (!editing) address.value = displayURL(tab?.url ?? '')
+  renderAddressDisplay(tab?.url ?? '')
   mcpBadge.hidden = !state.mcpEnabled
   if (state.accent) document.body.style.setProperty('--sys-accent', state.accent)
   document.body.classList.toggle('has-accent', !!state.accent)
@@ -160,7 +166,7 @@ function render(): void {
   const starred = !!tab?.bookmarked
   if (starBtn.classList.contains('on') !== starred || !starBtn.innerHTML) {
     starBtn.classList.toggle('on', starred)
-    starBtn.innerHTML = starred ? ICONS.starFilled : ICONS.star
+    starBtn.innerHTML = ICONS.star
     starBtn.title = starred ? 'Edit bookmark (Ctrl+D)' : 'Bookmark this page (Ctrl+D)'
   }
   renderExtensions(state.extensionPartition)
@@ -174,9 +180,45 @@ function renderShield(tab: TabInfo | undefined): void {
   shieldKey = key
   shieldBtn.hidden = !web
   if (!tab || !web) return
-  shieldBtn.classList.toggle('off', !tab.blockingActive)
-  shieldBtn.innerHTML = ICONS.shield + (tab.blockingActive && tab.blocked > 0 ? `<span class="count">${tab.blocked > 99 ? '99+' : tab.blocked}</span>` : '')
+  shieldBtn.classList.toggle('on', tab.blockingActive && tab.blocked > 0)
+  shieldBtn.innerHTML = (tab.blockingActive ? ICONS.shield : ICONS.shieldOff) + (tab.blockingActive && tab.blocked > 0 ? `<span class="count">${tab.blocked > 99 ? '99+' : tab.blocked}</span>` : '')
   shieldBtn.title = tab.blockingActive ? `${tab.blocked} ads & trackers blocked on this page` : 'Blocking is off for this site'
+}
+
+/** Shows the site's host prominently (and the rest faintly) while the address isn't being edited. */
+let displayedFor = '\0'
+function renderAddressDisplay(url: string): void {
+  const key = `${url}|${editing}`
+  if (key === displayedFor) return
+  displayedFor = key
+  let host = ''
+  let rest = ''
+  let kind: 'secure' | 'insecure' | 'local' | 'none' = 'none'
+  try {
+    const u = new URL(url)
+    if (u.protocol === 'https:' || u.protocol === 'http:') {
+      host = u.host.replace(/^www\./, '')
+      rest = (u.pathname === '/' ? '' : u.pathname) + u.search + u.hash
+      kind = u.protocol === 'https:' ? 'secure' : /^(localhost|127\.)/.test(u.hostname) ? 'local' : 'insecure'
+    } else if (u.protocol === 'file:') {
+      host = decodeURIComponent(u.pathname.split('/').pop() || u.pathname)
+      kind = 'local'
+    }
+  } catch {
+    // Not a URL (about:blank etc.)
+  }
+  const show = !editing && !!host
+  addressForm.classList.toggle('show-display', show)
+  addressDisplay.replaceChildren()
+  if (show) {
+    addressDisplay.append(
+      Object.assign(document.createElement('span'), { className: 'host', textContent: host }),
+      Object.assign(document.createElement('span'), { className: 'rest', textContent: rest }),
+    )
+  }
+  siteIcon.className = editing || !url || url === 'about:blank' ? '' : kind
+  siteIcon.innerHTML = editing || !host ? ICONS.search : kind === 'secure' ? ICONS.lock : kind === 'insecure' ? ICONS.warn : ICONS.page
+  siteIcon.title = kind === 'secure' ? 'Secure connection' : kind === 'insecure' ? 'Not secure: this site doesn\'t use HTTPS' : ''
 }
 
 function displayURL(url: string): string {
@@ -211,7 +253,7 @@ tabsEl.addEventListener('contextmenu', (e) => {
   const el = (e.target as HTMLElement).closest<HTMLDivElement>('.tab')
   if (!el) return
   e.preventDefault()
-  api.showTabMenu(Number(el.dataset.id))
+  api.showTabMenu(Number(el.dataset.id), e.clientX, e.clientY)
 })
 $('tabstrip').addEventListener('dblclick', (e) => {
   if (e.target === e.currentTarget || e.target === tabsEl) api.newTab()
@@ -237,6 +279,7 @@ menuBtn.onclick = () => {
 
 address.addEventListener('focus', () => {
   editing = true
+  renderAddressDisplay(active()?.url ?? '')
   address.select()
 })
 address.addEventListener('blur', () => {

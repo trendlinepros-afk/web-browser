@@ -6,11 +6,13 @@
       http-equiv="Content-Security-Policy"
       content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: http: https: crx:"
     />
+    <link rel="stylesheet" href="theme.css" />
     <link rel="stylesheet" href="styles.css" />
     <title>Zirtola</title>
   </head>
   <body>
     <div id="tabstrip">
+      <div id="mark" aria-hidden="true"></div>
       <div id="tabs" role="tablist"></div>
       <button id="new-tab" class="icon-btn" title="New tab (Ctrl+T)" aria-label="New tab"></button>
     </div>
@@ -19,14 +21,18 @@
       <button id="forward" class="icon-btn" title="Forward (Alt+Right)" aria-label="Forward"></button>
       <button id="reload" class="icon-btn" title="Reload (Ctrl+R)" aria-label="Reload"></button>
       <form id="address-form" autocomplete="off">
-        <span id="incognito-badge" hidden>Incognito</span>
-        <input id="address" type="text" spellcheck="false" placeholder="Search or enter address" aria-label="Address and search bar" />
+        <span id="site-icon" aria-hidden="true"></span>
+        <span id="incognito-badge" hidden>Private</span>
+        <div id="address-wrap">
+          <input id="address" type="text" spellcheck="false" placeholder="Search the web or type an address" aria-label="Address and search bar" />
+          <div id="address-display" aria-hidden="true"></div>
+        </div>
         <button id="star" type="button" class="star" title="Bookmark this page (Ctrl+D)" aria-label="Bookmark this page"></button>
       </form>
       <button id="shield" class="icon-btn" title="Ad &amp; tracker blocking" aria-label="Ad and tracker blocking"></button>
       <div id="extensions"></div>
       <span id="mcp-badge" hidden title="Claude can control this browser (MCP server is on)">Claude</span>
-      <button id="menu" class="icon-btn" title="Menu" aria-label="Menu"></button>
+      <button id="menu" class="icon-btn" title="Zirtola menu" aria-label="Zirtola menu"></button>
     </div>
     <div id="bookmarks-bar" hidden>
       <div id="bm-items" role="toolbar" aria-label="Bookmarks"></div>

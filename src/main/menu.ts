@@ -1,4 +1,5 @@
-import { app, BrowserWindow, clipboard, dialog, Menu, shell, type MenuItemConstructorOptions } from 'electron'
+import { app, BrowserWindow, clipboard, dialog, Menu, nativeTheme, shell, type MenuItemConstructorOptions } from 'electron'
+import type { SettingsModel } from '../shared/types'
 import type { Browser } from './browser'
 import type { BrowserWindowController } from './window'
 import type { Tab } from './tab'
@@ -38,7 +39,7 @@ export class Menus {
     private readonly sleeper: TabSleeper,
   ) {
     browser.onShowAppMenu = (w, x, y) => this.showAppMenu(w, x, y)
-    browser.onShowTabMenu = (w, tab) => this.showTabMenu(w, tab)
+    browser.onShowTabMenu = (w, tab, x, y) => this.showTabMenu(w, tab, x, y)
     browser.onShowShieldMenu = (w, x, y) => this.showShieldMenu(w, x, y)
     this.bookmarkUi = new BookmarkUi(browser)
     browser.onBookmarkCommand = (w, name, args) => this.bookmarkUi.handle(w, name, args)
@@ -72,7 +73,7 @@ export class Menus {
           { label: 'New Tab', accelerator: 'CmdOrCtrl+T', click: this.withWindow((w) => w.createTab()) },
           { label: 'New Window', accelerator: 'CmdOrCtrl+N', click: () => this.browser.createWindow() },
           {
-            label: 'New Incognito Window',
+            label: 'New Private Window',
             accelerator: 'CmdOrCtrl+Shift+N',
             click: () => this.browser.createWindow({ incognito: true }),
           },
@@ -80,6 +81,7 @@ export class Menus {
           { type: 'separator' },
           { label: 'Bookmark This Page', accelerator: 'CmdOrCtrl+D', click: this.withWindow((w) => this.bookmarkUi.bookmarkActiveTab(w)) },
           { label: 'Show Bookmarks Bar', accelerator: 'CmdOrCtrl+Shift+B', click: () => this.bookmarkUi.toggleBar() },
+          { label: 'Settings', accelerator: 'CmdOrCtrl+,', click: this.withWindow((w) => this.openSettings(w)) },
           { type: 'separator' },
           { label: 'Open Location', accelerator: 'CmdOrCtrl+L', click: this.withWindow((w) => w.focusAddressBar()) },
           { label: 'Open Location', accelerator: 'Alt+D', visible: false, click: this.withWindow((w) => w.focusAddressBar()) },
@@ -167,142 +169,274 @@ export class Menus {
     Menu.setApplicationMenu(Menu.buildFromTemplate(template))
   }
 
-  /** The ☰ menu in the toolbar. */
+  /** The ⚙ menu in the toolbar: quick actions; everything configurable lives in Settings. */
   showAppMenu(w: BrowserWindowController, x: number, y: number): void {
-    const s = getSettings()
     const template: MenuItemConstructorOptions[] = [
       { label: 'New tab', accelerator: 'CmdOrCtrl+T', click: () => w.createTab() },
       { label: 'New window', accelerator: 'CmdOrCtrl+N', click: () => this.browser.createWindow() },
-      { label: 'New incognito window', accelerator: 'CmdOrCtrl+Shift+N', click: () => this.browser.createWindow({ incognito: true }) },
+      { label: 'New private window', accelerator: 'CmdOrCtrl+Shift+N', click: () => this.browser.createWindow({ incognito: true }) },
       { type: 'separator' },
       { label: 'Bookmarks', submenu: this.bookmarkUi.appMenu(w) },
-      {
-        label: 'Extensions',
-        submenu: [
-          { label: 'Get extensions (Chrome Web Store)', click: () => this.openInNormalWindow(w, CHROME_WEB_STORE_URL) },
-          { label: 'Install LastPass', click: () => this.openInNormalWindow(w, LASTPASS_URL) },
-          { type: 'separator' },
-          ...this.installedExtensionItems(),
-          { type: 'separator' },
-          {
-            label: 'Update extensions now',
-            click: () => updateAllExtensions(this.browser).catch((err) => dialog.showErrorBox('Extension update failed', String(err))),
-          },
-        ],
-      },
-      {
-        label: 'Claude (MCP)',
-        submenu: [
-          {
-            label: this.mcp.running ? `MCP server running on port ${s.mcp.port}` : 'MCP server is off',
-            enabled: false,
-          },
-          {
-            label: 'Enable MCP server',
-            type: 'checkbox',
-            checked: s.mcp.enabled,
-            click: (item) => this.setMcpEnabled(item.checked),
-          },
-          {
-            label: 'Copy "claude mcp add" command',
-            click: () => {
-              clipboard.writeText(BrowserMcpServer.connectCommand())
-              dialog.showMessageBox(w.win, {
-                type: 'info',
-                message: 'Copied to clipboard.',
-                detail: 'Paste it in a terminal to connect Claude Code. It contains a secret token; treat it like a password.',
-              })
-            },
-          },
-          {
-            label: 'Regenerate token',
-            click: async () => {
-              updateSettings((x) => (x.mcp.token = ''))
-              BrowserMcpServer.ensureToken()
-              if (this.mcp.running) {
-                await this.mcp.stop()
-                await this.mcp.start()
-              }
-            },
-          },
-          { type: 'separator' },
-          {
-            label: 'Allow Claude to run JavaScript (evaluate)',
-            type: 'checkbox',
-            checked: s.mcp.allowEvaluate,
-            click: (item) => updateSettings((x) => (x.mcp.allowEvaluate = item.checked)),
-          },
-          {
-            label: 'Allow Claude in incognito windows',
-            type: 'checkbox',
-            checked: s.mcp.allowIncognito,
-            click: (item) => updateSettings((x) => (x.mcp.allowIncognito = item.checked)),
-          },
-        ],
-      },
-      {
-        label: 'Settings',
-        submenu: [
-          {
-            label: 'Search engine',
-            submenu: SEARCH_ENGINES.map(([label, url]) => ({
-              label,
-              type: 'radio' as const,
-              checked: s.searchEngine === url,
-              click: () => updateSettings((x) => (x.searchEngine = url)),
-            })),
-          },
-          {
-            label: 'Sleep inactive tabs after',
-            submenu: SLEEP_OPTIONS.map(([label, minutes]) => ({
-              label,
-              type: 'radio' as const,
-              checked: s.discardAfterMinutes === minutes,
-              click: () => updateSettings((x) => (x.discardAfterMinutes = minutes)),
-            })),
-          },
-          {
-            label: 'Sleep tabs when memory is low',
-            type: 'checkbox',
-            checked: s.memoryPressureFreeMB > 0,
-            click: (item) => updateSettings((x) => (x.memoryPressureFreeMB = item.checked ? 800 : 0)),
-          },
-          {
-            label: 'Allow pinned tabs to sleep',
-            type: 'checkbox',
-            checked: s.sleepPinnedTabs,
-            click: (item) => updateSettings((x) => (x.sleepPinnedTabs = item.checked)),
-          },
-          {
-            label: 'Sleep all background tabs now',
-            click: () => {
-              for (const t of this.browser.allTabs()) if (t.canDiscard({ sleepPinned: true })) t.discard()
-              this.sleeper.check()
-            },
-          },
-          { type: 'separator' },
-          {
-            label: 'Restore tabs on startup',
-            type: 'checkbox',
-            checked: s.restoreSession,
-            click: (item) => updateSettings((x) => (x.restoreSession = item.checked)),
-          },
-          {
-            label: 'Check for updates on startup',
-            type: 'checkbox',
-            checked: s.checkForUpdatesOnStartup,
-            click: (item) => updateSettings((x) => (x.checkForUpdatesOnStartup = item.checked)),
-          },
-        ],
-      },
+      { label: 'Extensions', submenu: this.extensionsMenu(w) },
       { type: 'separator' },
-      { label: 'Make Zirtola your default browser…', click: () => makeDefaultBrowser() },
-      { label: 'Check for updates…', click: () => checkForUpdates({ interactive: true }) },
-      { label: `About Zirtola (v${app.getVersion()})`, click: () => shell.openExternal(REPO_URL) },
+      { label: 'Settings', accelerator: 'CmdOrCtrl+,', click: () => this.openSettings(w) },
+      { label: 'Check for updates', click: () => checkForUpdates({ interactive: true }) },
       { type: 'separator' },
-      { label: 'Quit', accelerator: 'CmdOrCtrl+Q', click: () => app.quit() },
+      { label: `Zirtola ${app.getVersion()}`, enabled: false },
+      { label: 'Quit Zirtola', accelerator: 'CmdOrCtrl+Q', click: () => app.quit() },
     ]
-    Menu.buildFromTemplate(template).popup({ window: w.win, x: Math.round(x), y: Math.round(y) })
+    w.popup.menu(template, x, y, { align: 'right' })
+  }
+
+  private extensionsMenu(w: BrowserWindowController): MenuItemConstructorOptions[] {
+    return [
+      { label: 'Get extensions (Chrome Web Store)', click: () => this.openInNormalWindow(w, CHROME_WEB_STORE_URL) },
+      { label: 'Install LastPass', click: () => this.openInNormalWindow(w, LASTPASS_URL) },
+      { type: 'separator' },
+      ...this.installedExtensionItems(),
+      { type: 'separator' },
+      {
+        label: 'Update extensions now',
+        click: () => updateAllExtensions(this.browser).catch((err) => dialog.showErrorBox('Extension update failed', String(err))),
+      },
+    ]
+  }
+
+  // ---- Settings panel ---------------------------------------------------------
+
+  openSettings(w: BrowserWindowController): void {
+    w.popup.onSetting = (key, value) => {
+      void this.applySetting(key, value).then(() => w.popup.updateSettings(this.settingsModel()))
+    }
+    w.popup.onAction = (name) => this.runAction(w, name)
+    w.popup.settings(this.settingsModel())
+  }
+
+  private settingsModel(): SettingsModel {
+    const s = getSettings()
+    const updated = this.browser.blocker.lastUpdated
+    const extensions = this.browser.profile.extensions.getAllExtensions()
+    return {
+      version: app.getVersion(),
+      sections: [
+        {
+          id: 'appearance',
+          title: 'Appearance',
+          controls: [
+            {
+              kind: 'select',
+              key: 'theme',
+              label: 'Theme',
+              description: 'System follows your Windows light/dark setting.',
+              value: s.theme,
+              options: [
+                { value: 'system', label: 'System' },
+                { value: 'dark', label: 'Dark' },
+                { value: 'light', label: 'Light' },
+              ],
+            },
+            { kind: 'toggle', key: 'showBookmarksBar', label: 'Show bookmarks bar', description: 'Ctrl+Shift+B', value: s.showBookmarksBar },
+          ],
+        },
+        {
+          id: 'search',
+          title: 'Search',
+          controls: [
+            {
+              kind: 'select',
+              key: 'searchEngine',
+              label: 'Search engine',
+              description: 'Used when you type something that isn\'t an address.',
+              value: s.searchEngine,
+              options: SEARCH_ENGINES.map(([label, url]) => ({ value: url, label })),
+            },
+          ],
+        },
+        {
+          id: 'speed',
+          title: 'Speed & memory',
+          controls: [
+            {
+              kind: 'select',
+              key: 'discardAfterMinutes',
+              label: 'Put idle tabs to sleep after',
+              description: 'Sleeping tabs use no memory and wake when you click them.',
+              value: String(s.discardAfterMinutes),
+              options: SLEEP_OPTIONS.map(([label, minutes]) => ({ value: String(minutes), label })),
+            },
+            { kind: 'toggle', key: 'memoryPressure', label: 'Sleep tabs when memory runs low', value: s.memoryPressureFreeMB > 0 },
+            { kind: 'toggle', key: 'sleepPinnedTabs', label: 'Let pinned tabs sleep', value: s.sleepPinnedTabs },
+            { kind: 'button', action: 'sleepAll', label: 'Sleep now', description: 'Put every background tab to sleep.' },
+          ],
+        },
+        {
+          id: 'privacy',
+          title: 'Privacy & blocking',
+          controls: [
+            { kind: 'toggle', key: 'blocking.enabled', label: 'Block ads and trackers', description: 'Turn off for one site from the shield next to the address bar.', value: s.blocking.enabled },
+            { kind: 'toggle', key: 'blocking.cookieBanners', label: 'Hide cookie banners', value: s.blocking.cookieBanners },
+            { kind: 'toggle', key: 'privacy.globalPrivacyControl', label: 'Ask sites not to sell or share my data', description: 'Sends the Global Privacy Control signal.', value: s.privacy.globalPrivacyControl },
+            {
+              kind: 'button',
+              action: 'updateFilters',
+              label: 'Update',
+              description: `Filter lists ${updated ? `updated ${new Date(updated).toLocaleString()}` : 'not downloaded yet'}. They also update daily.`,
+            },
+          ],
+        },
+        {
+          id: 'startup',
+          title: 'Startup',
+          controls: [
+            { kind: 'toggle', key: 'restoreSession', label: 'Reopen my tabs when Zirtola starts', value: s.restoreSession },
+            { kind: 'button', action: 'makeDefault', label: 'Make default', description: 'Open links from other apps in Zirtola.' },
+          ],
+        },
+        {
+          id: 'bookmarks',
+          title: 'Bookmarks',
+          controls: [
+            { kind: 'button', action: 'importFirefox', label: 'Import', description: 'Import bookmarks from Firefox (icons and folders included).', style: 'primary' },
+            { kind: 'button', action: 'importHtml', label: 'Import file', description: 'Import a bookmarks HTML file from any browser.' },
+            { kind: 'button', action: 'exportHtml', label: 'Export', description: 'Save all bookmarks as an HTML file.' },
+          ],
+        },
+        {
+          id: 'extensions',
+          title: 'Extensions',
+          controls: [
+            ...extensions.map((e) => ({ kind: 'info' as const, label: e.name, value: e.version })),
+            ...(extensions.length ? [] : [{ kind: 'info' as const, label: 'No extensions installed', value: '' }]),
+            { kind: 'button', action: 'getExtensions', label: 'Browse', description: 'Install extensions from the Chrome Web Store.' },
+            { kind: 'button', action: 'installLastPass', label: 'Install', description: 'LastPass password manager' },
+          ],
+        },
+        {
+          id: 'claude',
+          title: 'Claude',
+          controls: [
+            {
+              kind: 'toggle',
+              key: 'mcp.enabled',
+              label: 'Let Claude control Zirtola',
+              description: this.mcp.running
+                ? `Running on 127.0.0.1:${s.mcp.port}. Only apps with your secret token can connect.`
+                : 'Starts a local MCP server that Claude Code or Claude Desktop can connect to.',
+              value: s.mcp.enabled,
+            },
+            { kind: 'button', action: 'copyMcpCommand', label: 'Copy', description: 'Copy the "claude mcp add" command (contains your secret token).' },
+            { kind: 'toggle', key: 'mcp.allowEvaluate', label: 'Allow Claude to run JavaScript in pages', value: s.mcp.allowEvaluate },
+            { kind: 'toggle', key: 'mcp.allowIncognito', label: 'Allow Claude in private windows', value: s.mcp.allowIncognito },
+            { kind: 'button', action: 'regenerateToken', label: 'Reset', description: 'Make a new secret token (disconnects existing connections).', style: 'danger' },
+          ],
+        },
+        {
+          id: 'updates',
+          title: 'Updates',
+          controls: [
+            { kind: 'info', label: 'Version', value: app.getVersion() },
+            { kind: 'toggle', key: 'checkForUpdatesOnStartup', label: 'Check for updates automatically', value: s.checkForUpdatesOnStartup },
+            { kind: 'button', action: 'checkUpdates', label: 'Check now', description: 'Look for a newer version of Zirtola.', style: 'primary' },
+          ],
+        },
+      ],
+    }
+  }
+
+  private async applySetting(key: string, value: unknown): Promise<void> {
+    const bool = value === true
+    switch (key) {
+      case 'theme':
+        if (value === 'system' || value === 'dark' || value === 'light') {
+          updateSettings((s) => (s.theme = value))
+          nativeTheme.themeSource = value
+        }
+        break
+      case 'showBookmarksBar':
+        if (getSettings().showBookmarksBar !== bool) this.bookmarkUi.toggleBar()
+        break
+      case 'searchEngine':
+        if (typeof value === 'string' && SEARCH_ENGINES.some(([, url]) => url === value)) updateSettings((s) => (s.searchEngine = value))
+        break
+      case 'discardAfterMinutes':
+        updateSettings((s) => (s.discardAfterMinutes = Number(value) || 0))
+        break
+      case 'memoryPressure':
+        updateSettings((s) => (s.memoryPressureFreeMB = bool ? 800 : 0))
+        break
+      case 'sleepPinnedTabs':
+        updateSettings((s) => (s.sleepPinnedTabs = bool))
+        break
+      case 'blocking.enabled':
+        updateSettings((s) => (s.blocking.enabled = bool))
+        break
+      case 'blocking.cookieBanners':
+        updateSettings((s) => (s.blocking.cookieBanners = bool))
+        this.browser.blocker.refresh().catch(() => {})
+        break
+      case 'privacy.globalPrivacyControl':
+        updateSettings((s) => (s.privacy.globalPrivacyControl = bool))
+        break
+      case 'restoreSession':
+        updateSettings((s) => (s.restoreSession = bool))
+        break
+      case 'checkForUpdatesOnStartup':
+        updateSettings((s) => (s.checkForUpdatesOnStartup = bool))
+        break
+      case 'mcp.enabled':
+        await this.setMcpEnabled(bool)
+        break
+      case 'mcp.allowEvaluate':
+        updateSettings((s) => (s.mcp.allowEvaluate = bool))
+        break
+      case 'mcp.allowIncognito':
+        updateSettings((s) => (s.mcp.allowIncognito = bool))
+        break
+    }
+    for (const win of this.browser.windows.values()) win.pushState()
+  }
+
+  private runAction(w: BrowserWindowController, name: string): void {
+    const refresh = () => w.popup.updateSettings(this.settingsModel())
+    switch (name) {
+      case 'sleepAll':
+        for (const t of this.browser.allTabs()) if (t.canDiscard({ sleepPinned: true })) t.discard()
+        return
+      case 'updateFilters':
+        this.browser.blocker
+          .refresh()
+          .then(refresh)
+          .catch((err) => dialog.showErrorBox('Filter list update failed', String(err)))
+        return
+      case 'makeDefault':
+        return makeDefaultBrowser()
+      case 'importFirefox':
+        w.popup.close()
+        return void this.bookmarkUi.importFromFirefox(w)
+      case 'importHtml':
+        w.popup.close()
+        return void this.bookmarkUi.importFromHtml(w)
+      case 'exportHtml':
+        w.popup.close()
+        return void this.bookmarkUi.exportHtml(w)
+      case 'getExtensions':
+        w.popup.close()
+        return this.openInNormalWindow(w, CHROME_WEB_STORE_URL)
+      case 'installLastPass':
+        w.popup.close()
+        return this.openInNormalWindow(w, LASTPASS_URL)
+      case 'copyMcpCommand':
+        clipboard.writeText(BrowserMcpServer.connectCommand())
+        return
+      case 'regenerateToken':
+        updateSettings((x) => (x.mcp.token = ''))
+        BrowserMcpServer.ensureToken()
+        if (this.mcp.running) void this.mcp.stop().then(() => this.mcp.start())
+        return
+      case 'checkUpdates':
+        w.popup.close()
+        return void checkForUpdates({ interactive: true })
+    }
   }
 
   /** The shield button: per-site and global ad/tracker blocking controls. */
@@ -372,10 +506,10 @@ export class Menus {
             .catch((err) => dialog.showErrorBox('Filter list update failed', String(err))),
       },
     ]
-    Menu.buildFromTemplate(template).popup({ window: w.win, x: Math.round(x), y: Math.round(y) })
+    w.popup.menu(template, x, y, { align: 'right' })
   }
 
-  showTabMenu(w: BrowserWindowController, tab: Tab): void {
+  showTabMenu(w: BrowserWindowController, tab: Tab, x: number, y: number): void {
     const template: MenuItemConstructorOptions[] = [
       { label: 'New tab to the right', click: () => w.createTab({ index: w.tabs.indexOf(tab) + 1 }) },
       { type: 'separator' },
@@ -420,7 +554,7 @@ export class Menus {
         },
       },
     ]
-    Menu.buildFromTemplate(template).popup({ window: w.win })
+    w.popup.menu(template, x, y)
   }
 
   private installedExtensionItems(): MenuItemConstructorOptions[] {

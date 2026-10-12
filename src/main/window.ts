@@ -1,4 +1,4 @@
-import { BrowserWindow, type HandlerDetails, type Session, type WebContentsView, type WindowOpenHandlerResponse } from 'electron'
+import { BrowserWindow, nativeTheme, type HandlerDetails, type Session, type WebContentsView, type WindowOpenHandlerResponse } from 'electron'
 import path from 'node:path'
 import type { BookmarkBarState, WindowState } from '../shared/types'
 import { BookmarkStore } from './bookmarks'
@@ -7,11 +7,15 @@ import { APP_NAME } from './brand'
 import { accentColor, frameOptions, integratedTitleBar, titleBarOverlay, uiPlatform } from './theme'
 import { Tab, type SavedTab } from './tab'
 import type { Browser } from './browser'
+import { PopupHost } from './popup'
 
-/** Height of the browser UI (tab strip + toolbar) in DIPs. Must match styles.css. */
-export const UI_HEIGHT = 78
+/** Height of the browser UI (tab strip + toolbar) in DIPs. Must match --strip-h + --toolbar-h in styles.css. */
+export const UI_HEIGHT = 86
 /** Height of the bookmarks bar when shown. Must match --bookmarks-h in styles.css. */
-export const BOOKMARKS_BAR_HEIGHT = 32
+export const BOOKMARKS_BAR_HEIGHT = 34
+/** The page is a rounded card inset from the window edges. */
+const CARD_MARGIN = 8
+const CARD_RADIUS = 12
 
 export interface SavedWindow {
   bounds: Electron.Rectangle
@@ -29,6 +33,8 @@ export interface WindowOptions {
 
 export class BrowserWindowController {
   readonly win: BrowserWindow
+  /** Zirtola-styled menus and the settings panel for this window. */
+  readonly popup: PopupHost
   readonly incognito: boolean
   readonly session: Session
   tabs: Tab[] = []
@@ -54,8 +60,8 @@ export class BrowserWindowController {
       minWidth: 480,
       minHeight: 300,
       show: false,
-      title: opts.incognito ? `${APP_NAME} Incognito` : APP_NAME,
-      backgroundColor: opts.incognito ? '#202124' : '#f1f3f4',
+      title: opts.incognito ? `${APP_NAME} Private` : APP_NAME,
+      backgroundColor: opts.incognito ? '#0e0918' : nativeTheme.shouldUseDarkColors ? '#0a0d1a' : '#eceff8',
       autoHideMenuBar: true,
       icon: process.platform === 'linux' ? path.join(__dirname, '..', 'renderer', 'icon.png') : undefined,
       ...frameOptions(opts.incognito),
@@ -75,7 +81,12 @@ export class BrowserWindowController {
       query: { incognito: opts.incognito ? '1' : '0', platform: uiPlatform, frame: integratedTitleBar ? 'integrated' : 'native' },
     })
     this.win.once('ready-to-show', () => this.win.show())
+    this.popup = new PopupHost(this)
     this.win.on('resize', () => this.layout())
+    this.win.on('blur', () => {
+      // Menus close when you switch apps, like native ones.
+      if (!this.win.webContents.isFocused()) setTimeout(() => !this.win.isDestroyed() && !this.win.isFocused() && this.popup.close(), 50)
+    })
     this.win.on('enter-full-screen', () => this.layout())
     this.win.on('leave-full-screen', () => this.layout())
     this.win.on('focus', () => {
@@ -84,6 +95,7 @@ export class BrowserWindowController {
     })
     this.win.on('close', () => {
       browser.onWindowClosing(this)
+      this.popup.destroy()
       // Tear tabs down while the window still exists: the extension layer looks up each
       // tab's window when it's removed, which throws once the window is destroyed.
       const tabs = this.tabs
@@ -200,8 +212,15 @@ export class BrowserWindowController {
     if (!view || this.win.isDestroyed()) return
     const [width, height] = this.win.getContentSize()
     const fullscreen = this.activeTab?.htmlFullscreen ?? false
-    const top = fullscreen ? 0 : this.uiHeight()
-    view.setBounds({ x: 0, y: top, width, height: Math.max(0, height - top) })
+    if (fullscreen) {
+      view.setBorderRadius(0)
+      view.setBounds({ x: 0, y: 0, width, height })
+    } else {
+      const top = this.uiHeight()
+      view.setBorderRadius(CARD_RADIUS)
+      view.setBounds({ x: CARD_MARGIN, y: top, width: Math.max(0, width - 2 * CARD_MARGIN), height: Math.max(0, height - top - CARD_MARGIN) })
+    }
+    this.popup.layout()
   }
 
   detachTabView(view: WebContentsView): void {
@@ -308,7 +327,7 @@ export class BrowserWindowController {
   private sendState(): void {
     if (!this.uiReady || this.win.isDestroyed()) return
     const title = this.activeTab?.title
-    this.win.setTitle(title ? `${title}${this.incognito ? ' — Incognito' : ''} - ${APP_NAME}` : APP_NAME)
+    this.win.setTitle(title ? `${title}${this.incognito ? ' (Private)' : ''} - ${APP_NAME}` : APP_NAME)
     this.win.webContents.send('ui:state', this.state())
   }
 

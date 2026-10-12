@@ -1,4 +1,4 @@
-import { app, BrowserWindow, session } from 'electron'
+import { app, BrowserWindow, nativeTheme, session } from 'electron'
 import fs from 'node:fs'
 import path from 'node:path'
 import { pathToFileURL } from 'node:url'
@@ -12,6 +12,7 @@ import { offerDefaultBrowserOnce } from './default-browser'
 import { flushSettings, getSettings } from './settings'
 import { applyCommandLineHardening } from './privacy'
 import { migrateLegacyProfile } from './profile-migration'
+import { PopupHost } from './popup'
 
 // ---- Process-wide tuning (must run before 'ready') ------------------------
 
@@ -69,6 +70,8 @@ function main(): void {
 
   app.whenReady().then(async () => {
     session.defaultSession.setUserAgent(chromeUserAgent())
+    nativeTheme.themeSource = getSettings().theme
+    PopupHost.register()
     browser = new Browser()
 
     // Extensions must be ready before tabs exist so content scripts inject into restored tabs.

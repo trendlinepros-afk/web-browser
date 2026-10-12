@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:" />
+    <link rel="stylesheet" href="theme.css" />
+    <link rel="stylesheet" href="overlay.css" />
+    <title>Zirtola overlay</title>
+  </head>
+  <body>
+    <div id="scrim"></div>
+    <div id="menus"></div>
+    <aside id="settings" hidden aria-label="Settings">
+      <header>
+        <div class="title"><span class="mark"></span>Settings</div>
+        <button id="settings-close" class="icon" aria-label="Close settings"></button>
+      </header>
+      <nav id="settings-nav"></nav>
+      <div id="settings-body"></div>
+    </aside>
+    <script type="module" src="overlay.js"></script>
+  </body>
+</html>

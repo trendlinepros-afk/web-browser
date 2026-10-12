@@ -1,30 +1,12 @@
-:root {
-  --bg: #ffffff;
-  --fg: #202124;
-  --muted: #5f6368;
-  --border: #dadce0;
-  --accent: #1a73e8;
-  color-scheme: light;
-}
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #292a2d;
-    --fg: #e8eaed;
-    --muted: #9aa0a6;
-    --border: #5f6368;
-    --accent: #8ab4f8;
-    color-scheme: dark;
-  }
-}
 * {
   box-sizing: border-box;
 }
 body {
   margin: 0;
   padding: 18px 20px;
-  background: var(--bg);
+  background: var(--bg-elev);
   color: var(--fg);
-  font: 13px system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font: 13px var(--font);
 }
 form {
   display: grid;
@@ -41,9 +23,9 @@ input,
 select {
   height: 30px;
   padding: 0 8px;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--bg);
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  background: var(--raised);
   color: var(--fg);
   font: inherit;
 }
@@ -63,17 +45,23 @@ select:focus {
 button {
   height: 30px;
   padding: 0 14px;
-  border: 1px solid var(--border);
-  border-radius: 15px;
-  background: var(--bg);
-  color: var(--accent);
+  border: 1px solid var(--line-strong);
+  border-radius: 9px;
+  background: transparent;
+  color: var(--fg);
   font: inherit;
   font-weight: 500;
 }
 button.primary {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--bg);
+  border: 0;
+  background: var(--grad);
+  color: #fff;
+}
+button:hover {
+  filter: brightness(1.1);
+}
+#remove {
+  color: var(--danger);
 }
 [hidden] {
   display: none !important;

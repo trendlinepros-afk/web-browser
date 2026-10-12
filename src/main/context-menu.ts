@@ -15,7 +15,7 @@ export function attachContextMenu(tab: Tab, wc: WebContents): void {
       items.push(
         { label: 'Open link in new tab', click: () => window.createTab({ url: params.linkURL, background: true }) },
         { label: 'Open link in new window', click: () => browser.createWindow({ incognito: tab.incognito, url: params.linkURL }) },
-        { label: 'Open link in incognito window', click: () => browser.createWindow({ incognito: true, url: params.linkURL }) },
+        { label: 'Open link in private window', click: () => browser.createWindow({ incognito: true, url: params.linkURL }) },
         { label: 'Copy link address', click: () => clipboard.writeText(params.linkURL) },
       )
       sep()
@@ -90,6 +90,8 @@ export function attachContextMenu(tab: Tab, wc: WebContents): void {
     }
 
     items.push({ label: 'Inspect', click: () => wc.inspectElement(params.x, params.y) })
-    Menu.buildFromTemplate(items).popup({ window: window.win })
+    // Page coordinates → window coordinates (the page sits inside a card below the toolbar).
+    const bounds = tab.view?.getBounds() ?? { x: 0, y: 0 }
+    window.popup.menu(items, params.x + bounds.x, params.y + bounds.y, { target: wc })
   })
 }

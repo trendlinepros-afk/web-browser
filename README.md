@@ -7,7 +7,7 @@ A fast, private, lightweight desktop browser built on Chromium (via Electron), d
 - **No Google tracking**: no account sign-in, sync or usage reporting, and Chrome's Privacy Sandbox ad APIs are switched off
 - **Tab sleeping**: hidden tabs release their memory automatically and wake when you click them
 - **Bookmarks bar** with one-click **import from Firefox**
-- **Incognito windows** that keep nothing on disk and don't share cookies with anything else
+- **Private windows** that keep nothing on disk and don't share cookies with anything else
 - **A built-in MCP server** so Claude can drive the browser (off by default)
 - **One-click updates** from GitHub Releases
 
@@ -24,7 +24,7 @@ Download the latest release from the [Releases page](https://github.com/trendlin
 | Linux | `zirtola_x.y.z_amd64.deb` | Preferred. `sudo apt install ./zirtola_*.deb` |
 | Linux | `Zirtola-x.y.z.AppImage` | Fallback |
 
-**Default browser (Windows):** Zirtola offers this once on first launch, or use Menu (⋮) → **Make Zirtola your default
+**Default browser (Windows):** Zirtola offers this once on first launch, or use the ⚙ menu → **Make Zirtola your default
 browser…**. Windows opens Settings › Default apps, where you click **Set default** next to Zirtola.
 
 **Coming from "Web Browser"?** That was this app's working name. Updating carries your bookmarks, tabs, settings,
@@ -32,14 +32,15 @@ logins and extensions over automatically.
 
 ## Updating
 
-**Menu (⋮) → Check for updates…** checks GitHub, downloads the new version and asks you to restart.
+**the ⚙ menu → Check for updates…** checks GitHub, downloads the new version and asks you to restart.
 Your tabs come back after the restart. The browser also checks quietly on startup (you can turn this off in Settings).
 
 ## Using it
 
 | Action | Shortcut |
 |---|---|
-| New tab / window / incognito window | Ctrl+T / Ctrl+N / Ctrl+Shift+N |
+| New tab / window / private window | Ctrl+T / Ctrl+N / Ctrl+Shift+N |
+| Settings | Ctrl+, |
 | Bookmark page / show bookmarks bar | Ctrl+D / Ctrl+Shift+B |
 | Close tab / reopen closed tab | Ctrl+W / Ctrl+Shift+T |
 | Address bar | Ctrl+L, Alt+D, F6 |
@@ -84,7 +85,7 @@ least recently used tabs sleep first. Tabs playing audio, using your camera or m
    ```
 3. Ask Claude things like *"open my bank's statements page and download last month's PDF"*.
 
-The server listens only on your own computer and needs the secret token. Claude can't see incognito tabs, and
+The server listens only on your own computer and needs the secret token. Claude can't see private windows, and
 it can't run arbitrary JavaScript unless you turn that on in the same menu. Tabs Claude is driving show an orange dot.
 
 **Claude Desktop** (needs Node.js installed): add this to `claude_desktop_config.json`:

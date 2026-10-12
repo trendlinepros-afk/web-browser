@@ -265,7 +265,7 @@ export class Browser {
         case 'showAppMenu':
           return this.onShowAppMenu?.(w, Number(args[0]), Number(args[1]))
         case 'showTabMenu':
-          return tab && this.onShowTabMenu?.(w, tab)
+          return tab && this.onShowTabMenu?.(w, tab, Number(args[1]), Number(args[2]))
         case 'showShieldMenu':
           return this.onShowShieldMenu?.(w, Number(args[0]), Number(args[1]))
         default:
@@ -275,7 +275,7 @@ export class Browser {
   }
 
   onShowAppMenu: ((w: BrowserWindowController, x: number, y: number) => void) | null = null
-  onShowTabMenu: ((w: BrowserWindowController, tab: Tab) => void) | null = null
+  onShowTabMenu: ((w: BrowserWindowController, tab: Tab, x: number, y: number) => void) | null = null
   onShowShieldMenu: ((w: BrowserWindowController, x: number, y: number) => void) | null = null
   onBookmarkCommand: ((w: BrowserWindowController, name: string, args: unknown[]) => void) | null = null
 }

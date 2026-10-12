@@ -1,62 +1,14 @@
+/* Zirtola browser UI. Colors come from theme.css. */
+
 :root {
-  --bookmarks-h: 32px; /* BOOKMARKS_BAR_HEIGHT in src/main/window.ts */
-  --strip-h: 36px;
-  --toolbar-h: 42px; /* strip + toolbar = 78px = UI_HEIGHT in src/main/window.ts */
-  --bg-strip: #dee1e6;
-  --bg-toolbar: #ffffff;
-  --bg-tab-hover: #eceef1;
-  --bg-tab-active: #ffffff;
-  --bg-input: #f1f3f4;
-  --bg-input-focus: #ffffff;
-  --fg: #202124;
-  --fg-muted: #5f6368;
-  --border: #dadce0;
-  --accent: #1a73e8;
-  --claude: #d97757;
-  color-scheme: light;
+  --strip-h: 40px; /* TITLE_BAR_HEIGHT in src/main/theme.ts */
+  --toolbar-h: 46px; /* strip + toolbar = UI_HEIGHT (86) in src/main/window.ts */
+  --bookmarks-h: 34px; /* BOOKMARKS_BAR_HEIGHT in src/main/window.ts */
 }
 
-body.incognito {
-  --bg-strip: #202124;
-  --bg-toolbar: #35363a;
-  --bg-tab-hover: #2e2f33;
-  --bg-tab-active: #35363a;
-  --bg-input: #202124;
-  --bg-input-focus: #202124;
-  --fg: #e8eaed;
-  --fg-muted: #9aa0a6;
-  --border: #5f6368;
-  --accent: #8ab4f8;
-  color-scheme: dark;
-}
-
-@media (prefers-color-scheme: dark) {
-  body:not(.incognito) {
-    --bg-strip: #202124;
-    --bg-toolbar: #292a2d;
-    --bg-tab-hover: #2c2d30;
-    --bg-tab-active: #292a2d;
-    --bg-input: #1f2023;
-    --bg-input-focus: #1f2023;
-    --fg: #e8eaed;
-    --fg-muted: #9aa0a6;
-    --border: #3c4043;
-    --accent: #8ab4f8;
-    color-scheme: dark;
-  }
-}
-
-/* The system accent color (Windows/macOS), lightened for dark backgrounds. */
+/* The system accent color (Windows/macOS) tints focus and selection; the gradient stays Zirtola's. */
 body.has-accent {
-  --accent: var(--sys-accent);
-}
-@media (prefers-color-scheme: dark) {
-  body.has-accent {
-    --accent: color-mix(in srgb, var(--sys-accent) 60%, white);
-  }
-}
-body.incognito.has-accent {
-  --accent: color-mix(in srgb, var(--sys-accent) 60%, white);
+  --accent: color-mix(in srgb, var(--sys-accent) 70%, #8d84ff);
 }
 
 * {
@@ -68,66 +20,75 @@ body {
   margin: 0;
   height: 100%;
   overflow: hidden;
-  font: 12px 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
+  font: 12.5px var(--font);
   color: var(--fg);
-  background: var(--bg-toolbar);
+  background:
+    radial-gradient(900px 140px at 0% 0%, rgba(106, 92, 255, 0.13), transparent 70%),
+    radial-gradient(700px 120px at 100% 0%, rgba(25, 211, 230, 0.08), transparent 70%),
+    var(--bg);
   user-select: none;
 }
 
 button {
   font: inherit;
   color: inherit;
+  cursor: default;
+}
+
+svg {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .icon-btn {
   flex: none;
-  width: 30px;
-  height: 30px;
+  width: 34px;
+  height: 34px;
   border: 0;
-  border-radius: 50%;
+  border-radius: 10px;
   background: transparent;
+  color: var(--muted);
   display: grid;
   place-items: center;
-  cursor: default;
   padding: 0;
+  transition: background 120ms, color 120ms;
 }
 .icon-btn:hover:not(:disabled) {
-  background: var(--bg-tab-hover);
+  background: var(--hover);
+  color: var(--fg);
+}
+.icon-btn:active:not(:disabled) {
+  background: var(--press);
 }
 .icon-btn:disabled {
-  opacity: 0.35;
+  opacity: 0.3;
 }
 .icon-btn svg {
   width: 18px;
   height: 18px;
-  fill: currentColor;
 }
 
-/* ---- Tab strip ---------------------------------------------------------- */
+/* ---- Tab strip (doubles as the title bar on Windows) ---------------------- */
 
 #tabstrip {
   height: var(--strip-h);
-  background: var(--bg-strip);
   display: flex;
-  align-items: flex-end;
-  padding: 0 6px;
-  gap: 2px;
+  align-items: center;
+  padding: 0 8px;
+  gap: 6px;
 }
 
-/* Integrated title bar: the strip drags the window; the OS draws the window buttons on top. */
-body.frame-integrated #tabstrip {
-  -webkit-app-region: drag;
-}
-body.frame-integrated #tabstrip .tab,
-body.frame-integrated #tabstrip button {
-  -webkit-app-region: no-drag;
-}
-body.frame-integrated.platform-win32 #tabstrip {
-  /* Minimize / maximize / close: 3 × 46px, plus breathing room to grab the window. */
-  padding-right: 168px;
-}
-body.frame-integrated.platform-darwin #tabstrip {
-  padding-left: 80px;
+#mark {
+  flex: none;
+  width: 22px;
+  height: 22px;
+  margin: 0 4px 0 2px;
+  border-radius: 7px;
+  background: url('icon.png') center / 26px no-repeat;
+  filter: drop-shadow(0 0 10px rgba(106, 92, 255, 0.45));
 }
 
 #tabs {
@@ -135,29 +96,36 @@ body.frame-integrated.platform-darwin #tabstrip {
   flex: 0 1 auto;
   min-width: 0;
   height: 100%;
-  align-items: flex-end;
-  gap: 1px;
+  align-items: center;
+  gap: 4px;
 }
 
 .tab {
   position: relative;
-  flex: 0 1 220px;
-  min-width: 36px;
+  flex: 0 1 210px;
+  min-width: 40px;
   height: 30px;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 6px 0 10px;
-  border-radius: 8px 8px 0 0;
-  color: var(--fg-muted);
+  gap: 8px;
+  padding: 0 5px 0 10px;
+  border-radius: 10px;
+  border: 1px solid transparent;
+  color: var(--muted);
+  font-weight: 500;
   overflow: hidden;
+  transition: background 120ms, color 120ms;
 }
 .tab:hover {
-  background: var(--bg-tab-hover);
+  background: var(--hover);
+  color: var(--fg);
 }
 .tab.active {
-  background: var(--bg-tab-active);
   color: var(--fg);
+  background:
+    linear-gradient(var(--raised), var(--raised)) padding-box,
+    var(--grad) border-box;
+  box-shadow: 0 4px 16px rgba(10, 12, 40, 0.28);
 }
 .tab.pinned {
   flex: 0 0 40px;
@@ -170,28 +138,27 @@ body.frame-integrated.platform-darwin #tabstrip {
 }
 .tab.sleeping .favicon,
 .tab.sleeping .title {
-  opacity: 0.55;
+  opacity: 0.45;
 }
 .tab .favicon {
   flex: none;
   width: 16px;
   height: 16px;
-  border-radius: 2px;
+  border-radius: 4px;
   object-fit: contain;
 }
 .tab .favicon.placeholder {
-  background: var(--border);
-  border-radius: 50%;
-  transform: scale(0.6);
+  background: var(--grad-soft);
+  border: 1px solid var(--line-strong);
 }
 .tab .spinner {
   flex: none;
   width: 14px;
   height: 14px;
-  border: 2px solid var(--border);
-  border-top-color: var(--accent);
   border-radius: 50%;
-  animation: spin 0.8s linear infinite;
+  background: conic-gradient(from 0deg, transparent 0 25%, #6a5cff, #19d3e6);
+  -webkit-mask: radial-gradient(circle, transparent 4.5px, #000 5px);
+  animation: spin 0.7s linear infinite;
 }
 @keyframes spin {
   to {
@@ -203,149 +170,250 @@ body.frame-integrated.platform-darwin #tabstrip {
   min-width: 0;
   white-space: nowrap;
   overflow: hidden;
-  text-overflow: ellipsis;
-  -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent);
+  -webkit-mask-image: linear-gradient(90deg, #000 82%, transparent);
 }
-.tab .audio {
+.tab .audio,
+.tab .close {
   flex: none;
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border: 0;
-  border-radius: 50%;
+  border-radius: 6px;
   background: transparent;
   display: grid;
   place-items: center;
   padding: 0;
+  color: var(--muted);
 }
-.tab .audio svg {
-  width: 14px;
-  height: 14px;
-  fill: currentColor;
+.tab .audio svg,
+.tab .close svg {
+  width: 13px;
+  height: 13px;
+  stroke-width: 2.2;
+}
+.tab .close {
+  opacity: 0;
+}
+.tab:hover .close,
+.tab.active .close {
+  opacity: 1;
+}
+.tab .audio:hover,
+.tab .close:hover {
+  background: var(--press);
+  color: var(--fg);
 }
 .tab .claude-dot {
   flex: none;
-  width: 8px;
-  height: 8px;
+  width: 7px;
+  height: 7px;
   border-radius: 50%;
-  background: var(--claude);
-}
-.tab .close {
-  flex: none;
-  width: 18px;
-  height: 18px;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  opacity: 0.7;
-}
-.tab .close:hover {
-  background: var(--border);
-  opacity: 1;
-}
-.tab .close svg {
-  width: 10px;
-  height: 10px;
-  fill: currentColor;
-}
-.tab:not(.active):not(:hover) + .tab:not(.active):not(:hover)::before {
-  content: '';
-  position: absolute;
-  left: -1px;
-  top: 8px;
-  bottom: 8px;
-  width: 1px;
-  background: var(--border);
+  background: var(--grad);
+  box-shadow: 0 0 8px rgba(25, 211, 230, 0.8);
 }
 
 #new-tab {
-  margin-bottom: 3px;
-  width: 28px;
-  height: 28px;
+  width: 30px;
+  height: 30px;
 }
 
-/* ---- Toolbar ------------------------------------------------------------ */
+/* Integrated title bar: the strip drags the window; the OS draws the window buttons on top. */
+body.frame-integrated #tabstrip {
+  -webkit-app-region: drag;
+}
+body.frame-integrated #tabstrip .tab,
+body.frame-integrated #tabstrip button {
+  -webkit-app-region: no-drag;
+}
+body.frame-integrated.platform-win32 #tabstrip {
+  /* Minimize / maximize / close: 3 × 46px, plus room to grab the window. */
+  padding-right: 168px;
+}
+body.frame-integrated.platform-darwin #tabstrip {
+  padding-left: 80px;
+}
+body.frame-integrated.platform-darwin #mark {
+  display: none;
+}
+
+/* ---- Toolbar ------------------------------------------------------------- */
 
 #toolbar {
   height: var(--toolbar-h);
   display: flex;
   align-items: center;
   gap: 2px;
-  padding: 0 6px;
-  border-bottom: 1px solid var(--border);
-  background: var(--bg-toolbar);
+  padding: 0 10px 0 8px;
 }
 
 #address-form {
+  position: relative;
   flex: 1;
   min-width: 0;
-  height: 32px;
-  margin: 0 6px;
+  height: 36px;
+  margin: 0 8px;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 14px;
-  border-radius: 16px;
-  background: var(--bg-input);
-  border: 1px solid transparent;
+  gap: 8px;
+  padding: 0 6px 0 12px;
+  border-radius: 12px;
+  background: var(--raised);
+  border: 1px solid var(--line);
+  transition: box-shadow 140ms;
+}
+#address-form:hover {
+  border-color: var(--line-strong);
 }
 #address-form:focus-within {
-  background: var(--bg-input-focus);
-  border-color: var(--accent);
+  border-color: transparent;
+  background:
+    linear-gradient(var(--raised), var(--raised)) padding-box,
+    var(--grad) border-box;
+  box-shadow: 0 0 0 4px rgba(106, 92, 255, 0.16);
 }
-#address {
+#site-icon {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  color: var(--faint);
+  display: grid;
+  place-items: center;
+}
+#site-icon svg {
+  width: 15px;
+  height: 15px;
+}
+#site-icon.secure {
+  color: var(--ok);
+}
+#site-icon.insecure {
+  color: var(--danger);
+}
+#address-wrap {
+  position: relative;
   flex: 1;
   min-width: 0;
+  height: 100%;
+  display: flex;
+  align-items: center;
+}
+#address {
+  width: 100%;
   border: 0;
   outline: 0;
   background: transparent;
   color: var(--fg);
-  font: 14px 'Segoe UI Variable Text', 'Segoe UI', system-ui, -apple-system, Roboto, sans-serif;
+  font: 13.5px var(--font);
   user-select: text;
+}
+#address::placeholder {
+  color: var(--faint);
+}
+/* Shows "host" prominently and the rest of the URL faintly while not editing. */
+#address-display {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  font: 13.5px var(--font);
+  white-space: nowrap;
+  overflow: hidden;
+  pointer-events: none;
+  -webkit-mask-image: linear-gradient(90deg, #000 92%, transparent);
+}
+#address-display .host {
+  color: var(--fg);
+  font-weight: 600;
+}
+#address-display .rest {
+  color: var(--faint);
+}
+#address-form.show-display #address {
+  color: transparent;
 }
 #incognito-badge {
   flex: none;
   font-size: 11px;
   font-weight: 600;
-  padding: 2px 8px;
-  border-radius: 10px;
-  background: #5f6368;
+  letter-spacing: 0.02em;
+  padding: 3px 9px;
+  border-radius: 7px;
+  background: var(--grad);
   color: #fff;
 }
-#mcp-badge {
+.star {
   flex: none;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 3px 8px;
-  border-radius: 10px;
-  background: var(--claude);
-  color: #fff;
-  margin: 0 4px;
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--faint);
+  display: grid;
+  place-items: center;
+  padding: 0;
+}
+.star:hover {
+  background: var(--hover);
+  color: var(--fg);
+}
+.star.on {
+  color: var(--accent);
+}
+.star.on svg {
+  fill: currentColor;
+}
+.star svg {
+  width: 17px;
+  height: 17px;
 }
 
 #shield {
   position: relative;
-  color: var(--accent);
 }
-#shield.off {
-  color: var(--fg-muted);
+#shield.on {
+  color: var(--accent);
 }
 #shield .count {
   position: absolute;
-  right: -2px;
-  bottom: 1px;
-  min-width: 14px;
-  height: 13px;
-  padding: 0 3px;
+  right: 0;
+  bottom: 2px;
+  min-width: 16px;
+  height: 14px;
+  padding: 0 4px;
   border-radius: 7px;
-  background: var(--accent);
-  color: var(--bg-toolbar);
-  font-size: 9px;
+  background: var(--grad);
+  color: #fff;
+  font-size: 9.5px;
   font-weight: 700;
-  line-height: 13px;
+  line-height: 14px;
   text-align: center;
+  box-shadow: 0 0 0 2px var(--bg);
+}
+
+#mcp-badge {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 26px;
+  margin: 0 4px;
+  padding: 0 10px;
+  border-radius: 13px;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--bg-elev), var(--bg-elev)) padding-box,
+    var(--grad) border-box;
+  font-size: 11.5px;
+  font-weight: 600;
+}
+#mcp-badge::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #19d3e6;
+  box-shadow: 0 0 8px #19d3e6;
 }
 
 #extensions {
@@ -357,75 +425,42 @@ browser-action-list {
   gap: 2px;
 }
 browser-action-list::part(action) {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
 }
 browser-action-list::part(action):hover {
-  background-color: var(--bg-tab-hover);
+  background-color: var(--hover);
 }
 
-/* ---- Address bar star ----------------------------------------------------- */
-
-.star {
-  flex: none;
-  width: 26px;
-  height: 26px;
-  margin-right: -8px;
-  border: 0;
-  border-radius: 50%;
-  background: transparent;
-  color: var(--fg-muted);
-  display: grid;
-  place-items: center;
-  padding: 0;
-}
-.star:hover {
-  background: var(--bg-tab-hover);
-}
-.star.on {
-  color: var(--accent);
-}
-.star svg {
-  width: 18px;
-  height: 18px;
-  fill: currentColor;
-}
-
-/* ---- Bookmarks bar -------------------------------------------------------- */
+/* ---- Bookmarks bar --------------------------------------------------------- */
 
 #bookmarks-bar {
   height: var(--bookmarks-h);
   display: flex;
   align-items: center;
-  gap: 2px;
-  padding: 0 8px;
-  background: var(--bg-toolbar);
-  border-bottom: 1px solid var(--border);
-}
-#toolbar:has(+ #bookmarks-bar:not([hidden])),
-#toolbar:has(~ #bookmarks-bar:not([hidden])) {
-  border-bottom: 0;
+  gap: 4px;
+  padding: 0 12px 4px;
 }
 #bm-items {
   flex: 1 1 auto;
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
   overflow: hidden;
   height: 100%;
 }
 .bm {
   flex: none;
-  max-width: 180px;
+  max-width: 190px;
   height: 26px;
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 0 8px;
-  border: 0;
-  border-radius: 13px;
+  gap: 7px;
+  padding: 0 10px;
+  border: 1px solid transparent;
+  border-radius: 8px;
   background: transparent;
   color: var(--fg);
   font-size: 12px;
@@ -433,16 +468,23 @@ browser-action-list::part(action):hover {
 }
 .bm:hover,
 .bm.open {
-  background: var(--bg-tab-hover);
+  background: var(--hover);
+  border-color: var(--line);
 }
 .bm img,
 .bm svg {
   flex: none;
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
+}
+.bm img {
+  border-radius: 3px;
 }
 .bm svg {
-  fill: var(--fg-muted);
+  color: var(--muted);
+}
+.bm[data-folder] svg {
+  color: var(--accent);
 }
 .bm .title {
   white-space: nowrap;
@@ -460,23 +502,23 @@ browser-action-list::part(action):hover {
   bottom: 3px;
   width: 2px;
   border-radius: 1px;
-  background: var(--accent);
+  background: var(--grad);
 }
 .bm.drop-before::before {
-  left: -2px;
+  left: -3px;
 }
 .bm.drop-after::after {
-  right: -2px;
+  right: -3px;
 }
 .bm.drop-into {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
+  border-color: var(--accent);
 }
 .bm.hidden-overflow {
   visibility: hidden;
 }
 #bm-empty {
-  color: var(--fg-muted);
+  flex: 1;
+  color: var(--faint);
   font-size: 12px;
   white-space: nowrap;
   overflow: hidden;
@@ -486,11 +528,9 @@ browser-action-list::part(action):hover {
   background: none;
   color: var(--accent);
   font-size: 12px;
+  font-weight: 600;
   padding: 0 4px;
   cursor: pointer;
-}
-#bm-empty {
-  flex: 1;
 }
 
 [hidden] {
