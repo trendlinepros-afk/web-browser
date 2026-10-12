@@ -1,8 +1,21 @@
 import { BrowserWindow, dialog, type Session, type WebContents } from 'electron'
 import type { Browser } from './browser'
+import type { PromptSpec } from '../shared/types'
 
-/** Granted silently: harmless or needed for normal browsing. */
-const ALWAYS_ALLOW = new Set(['clipboard-sanitized-write', 'fullscreen', 'pointerLock', 'keyboardLock', 'speaker-selection'])
+/**
+ * Granted silently: harmless or needed for normal browsing. Storage access is granted like Chrome
+ * does while third-party cookies are allowed; embedded logins and reCAPTCHA break (and look like
+ * bots) without it.
+ */
+const ALWAYS_ALLOW = new Set([
+  'clipboard-sanitized-write',
+  'fullscreen',
+  'pointerLock',
+  'keyboardLock',
+  'speaker-selection',
+  'storage-access',
+  'top-level-storage-access',
+])
 
 /** Prompt the user once per site for these. Anything not listed here or above is denied. */
 const ASK: Record<string, string> = {
@@ -15,8 +28,6 @@ const ASK: Record<string, string> = {
   'display-capture': 'see your screen',
   'idle-detection': 'know when you are actively using this device',
   'window-management': 'manage windows on all your displays',
-  'storage-access': 'use cookies and site data in this context',
-  'top-level-storage-access': 'use cookies and site data in this context',
 }
 
 /** Direct hardware access from web pages is off in Stage 1. */
@@ -41,6 +52,11 @@ function describeMedia(details: Electron.PermissionRequest | Electron.MediaAcces
   return ASK.media
 }
 
+function iconFor(permission: string, details: Electron.PermissionRequest | Electron.MediaAccessPermissionRequest): PromptSpec['icon'] {
+  if (permission === 'media') return ((details as Electron.MediaAccessPermissionRequest).mediaTypes ?? []).includes('video') ? 'camera' : 'mic'
+  return ({ geolocation: 'location', notifications: 'bell', 'clipboard-read': 'clipboard', 'display-capture': 'screen' } as Record<string, PromptSpec['icon']>)[permission] ?? 'lock'
+}
+
 /** Web permission names (navigator.permissions) for each Electron permission we prompt for. */
 const WEB_NAMES: Record<string, string[]> = {
   media: ['camera', 'microphone'],
@@ -50,7 +66,6 @@ const WEB_NAMES: Record<string, string[]> = {
   'clipboard-read': ['clipboard-read'],
   'idle-detection': ['idle-detection'],
   'window-management': ['window-management'],
-  'storage-access': ['storage-access'],
 }
 
 /**
@@ -77,19 +92,29 @@ export function configureSession(ses: Session, browser: Browser): void {
     const remembered = decisions.get(key)
     if (remembered !== undefined) return callback(remembered)
 
-    const win = (wc && (browser.fromWebContents(wc)?.win ?? BrowserWindow.fromWebContents(wc))) || undefined
     const what = permission === 'media' ? describeMedia(details) : ASK[permission]
-    const options: Electron.MessageBoxOptions = {
-      type: 'question',
-      buttons: ['Allow', 'Block'],
-      defaultId: 1,
-      cancelId: 1,
-      title: 'Permission request',
-      message: `${new URL(origin).host || origin} wants to ${what}.`,
+    const host = new URL(origin).host || origin
+    const controller = wc ? browser.fromWebContents(wc) ?? browser.findTabByWebContents(wc)?.window : undefined
+    let response: number
+    if (controller) {
+      // Zirtola's own prompt, under the address bar of the tab's window.
+      response = await controller.popup.prompt({
+        kind: 'permission',
+        icon: iconFor(permission, details),
+        title: host,
+        message: `wants to ${what}`,
+        buttons: ['Allow', 'Block'],
+        defaultId: 0,
+        cancelId: 2,
+      })
+    } else {
+      const win = wc ? BrowserWindow.fromWebContents(wc) ?? undefined : undefined
+      const options: Electron.MessageBoxOptions = { type: 'question', buttons: ['Allow', 'Block'], defaultId: 1, cancelId: 1, message: `${host} wants to ${what}.` }
+      response = (win ? await dialog.showMessageBox(win, options) : await dialog.showMessageBox(options)).response
     }
-    const { response } = win ? await dialog.showMessageBox(win, options) : await dialog.showMessageBox(options)
+    // Dismissing the prompt (Esc / clicking away) blocks this time without remembering.
     const allowed = response === 0
-    decisions.set(key, allowed)
+    if (response === 0 || response === 1) decisions.set(key, allowed)
     callback(allowed)
   })
 

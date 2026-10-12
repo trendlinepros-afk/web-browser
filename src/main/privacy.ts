@@ -69,9 +69,12 @@ export function configureNetwork(ses: Session, blocker: AdBlocker): void {
   })
 
   ses.webRequest.onBeforeSendHeaders({ urls: ['<all_urls>'] }, (details, callback) => {
-    const headers = details.requestHeaders
+    const hints: Record<string, string> = {}
+    addClientHints(ses, details.url, { ...details.requestHeaders }, hints)
+    // Same order as Chrome: client hints come first, before Upgrade-Insecure-Requests / User-Agent.
+    // Header order is part of how sites fingerprint browsers.
+    const headers: Record<string, string> = { ...hints, ...details.requestHeaders }
     if (getSettings().privacy.globalPrivacyControl) headers['Sec-GPC'] = '1'
-    addClientHints(ses, details.url, headers)
     callback({ requestHeaders: headers })
   })
 

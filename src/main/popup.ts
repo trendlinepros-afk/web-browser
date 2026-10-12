@@ -1,6 +1,6 @@
 import { ipcMain, Menu, MenuItem, nativeImage, WebContentsView, type MenuItemConstructorOptions, type WebContents } from 'electron'
 import path from 'node:path'
-import type { PopupItem, PopupModifiers, SettingsModel } from '../shared/types'
+import type { PopupItem, PopupModifiers, PromptSpec, SettingsModel } from '../shared/types'
 import type { BrowserWindowController } from './window'
 import { integratedTitleBar, uiPlatform } from './theme'
 
@@ -48,7 +48,9 @@ export class PopupHost {
 
   private handlers = new Map<number, Handler>()
   private nextId = 1
-  private openKind: 'menu' | 'settings' | null = null
+  private openKind: 'menu' | 'settings' | 'prompt' | null = null
+  private pendingPrompt: { spec: PromptSpec; resolve: (index: number) => void } | null = null
+  private promptQueue: { spec: PromptSpec; resolve: (index: number) => void }[] = []
   private restoreFocus: WebContents | null = null
   onSetting: ((key: string, value: unknown) => void) | null = null
   onAction: ((name: string) => void) | null = null
@@ -61,6 +63,7 @@ export class PopupHost {
     ipcMain.on('overlay:close', (e) => host(e)?.close())
     ipcMain.on('overlay:setting', (e, key: string, value: unknown) => host(e)?.onSetting?.(key, value))
     ipcMain.on('overlay:action', (e, name: string) => host(e)?.onAction?.(name))
+    ipcMain.on('overlay:answer', (e, index: number) => host(e)?.answer(index))
   }
 
   get isOpen(): boolean {
@@ -89,12 +92,14 @@ export class PopupHost {
     return PopupHost.loaded
   }
 
-  private async open(kind: 'menu' | 'settings', channel: string, payload: object): Promise<void> {
+  private async open(kind: 'menu' | 'settings' | 'prompt', channel: string, payload: object): Promise<void> {
     await PopupHost.ensure()
     const view = PopupHost.view!
     const win = this.w.win
     if (win.isDestroyed()) return
     if (PopupHost.current && PopupHost.current !== this) PopupHost.current.close()
+    // A menu or panel replacing an open prompt dismisses the prompt.
+    if (this.openKind === 'prompt' && kind !== 'prompt') this.close()
     PopupHost.current = this
     const [width, height] = win.getContentSize()
     // Adding moves the overlay into this window (if needed) and above every tab view.
@@ -114,6 +119,31 @@ export class PopupHost {
     void this.open('menu', 'overlay:show-menu', { items, x: Math.round(x), y: Math.round(y), align: opts.align ?? 'left' })
   }
 
+  /** Asks a question in Zirtola's style; resolves with the chosen button index (cancelId if dismissed). */
+  prompt(spec: PromptSpec): Promise<number> {
+    return new Promise((resolve) => {
+      this.promptQueue.push({ spec, resolve })
+      if (!this.pendingPrompt) this.nextPrompt()
+    })
+  }
+
+  private nextPrompt(): void {
+    const next = this.promptQueue.shift()
+    this.pendingPrompt = next ?? null
+    if (!next) return
+    if (this.w.win.isDestroyed()) return this.answer(next.spec.cancelId)
+    void this.open('prompt', 'overlay:show-prompt', next.spec)
+  }
+
+  private answer(index: number): void {
+    const pending = this.pendingPrompt
+    if (!pending) return
+    this.pendingPrompt = null
+    if (this.openKind === 'prompt') this.close()
+    pending.resolve(index)
+    this.nextPrompt()
+  }
+
   settings(model: SettingsModel): void {
     void this.open('settings', 'overlay:show-settings', model)
   }
@@ -125,7 +155,17 @@ export class PopupHost {
 
   close(): void {
     if (!this.openKind) return
+    const wasPrompt = this.openKind === 'prompt'
     this.openKind = null
+    // Closing a prompt any other way (window blur, another popup) counts as dismissing it.
+    if (wasPrompt && this.pendingPrompt) {
+      const pending = this.pendingPrompt
+      this.pendingPrompt = null
+      setImmediate(() => {
+        pending.resolve(pending.spec.cancelId)
+        this.nextPrompt()
+      })
+    }
     if (PopupHost.current === this) {
       PopupHost.view?.setVisible(false)
       PopupHost.view?.webContents.send('overlay:hide')
@@ -144,6 +184,7 @@ export class PopupHost {
   /** The window is closing: hand the shared overlay back (it is reused by the next window that needs it). */
   destroy(): void {
     this.close()
+    for (const p of this.promptQueue.splice(0)) p.resolve(p.spec.cancelId)
     const view = PopupHost.view
     if (view && !this.w.win.isDestroyed() && this.w.win.contentView.children.includes(view)) this.w.win.contentView.removeChildView(view)
     if (PopupHost.current === this) PopupHost.current = null

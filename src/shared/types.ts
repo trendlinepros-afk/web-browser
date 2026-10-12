@@ -110,6 +110,20 @@ export interface PopupItem {
   children?: PopupItem[]
 }
 
+/** A question shown in Zirtola's style (permission requests, confirmations). */
+export interface PromptSpec {
+  kind: 'permission' | 'info' | 'warning'
+  /** Specific icon for permission prompts. */
+  icon?: 'location' | 'camera' | 'mic' | 'bell' | 'clipboard' | 'screen' | 'lock'
+  title: string
+  message: string
+  detail?: string
+  buttons: string[]
+  defaultId: number
+  /** Returned when dismissed (Esc / click outside). */
+  cancelId: number
+}
+
 export interface PopupModifiers {
   ctrl: boolean
   shift: boolean

@@ -1,5 +1,5 @@
 // Draws Zirtola's menus and settings panel above the page. Plain DOM; driven by the main process.
-import type { PopupItem, PopupModifiers, SettingsControl, SettingsModel } from '../shared/types'
+import type { PopupItem, PopupModifiers, PromptSpec, SettingsControl, SettingsModel } from '../shared/types'
 
 interface OverlayApi {
   onShowMenu(cb: (m: { items: PopupItem[]; x: number; y: number; align: 'left' | 'right'; incognito?: boolean }) => void): void
@@ -10,6 +10,8 @@ interface OverlayApi {
   close(): void
   setSetting(key: string, value: unknown): void
   action(name: string): void
+  onShowPrompt(cb: (p: PromptSpec & { incognito?: boolean }) => void): void
+  answer(index: number): void
 }
 
 const api = (window as unknown as { overlay: OverlayApi }).overlay
@@ -44,6 +46,7 @@ function closeFrom(level: number): void {
 }
 
 function closeAll(): void {
+  if (activePrompt) return answerPrompt(activePrompt.cancelId)
   closeFrom(0)
   settingsEl.hidden = true
   document.body.classList.remove('settings-open')
@@ -202,10 +205,74 @@ window.addEventListener('blur', () => {
   if (stack.length) closeAll()
 })
 api.onHide(() => {
+  promptEl.hidden = true
+  activePrompt = null
   closeFrom(0)
   settingsEl.hidden = true
   document.body.classList.remove('settings-open')
 })
+
+// ---- Prompts (permission requests, confirmations) --------------------------------
+
+const promptEl = $<HTMLDivElement>('prompt')
+let activePrompt: PromptSpec | null = null
+const PERMISSION_ICONS: Record<NonNullable<PromptSpec['icon']>, string> = {
+  location: '<svg viewBox="0 0 24 24"><path d="M12 20.5s-6.5-5.6-6.5-10.5a6.5 6.5 0 0 1 13 0c0 4.9-6.5 10.5-6.5 10.5"/><circle cx="12" cy="10" r="2.3"/></svg>',
+  camera: '<svg viewBox="0 0 24 24"><rect x="3.5" y="7" width="12" height="10" rx="2.5"/><path d="m15.5 11 5-3v8l-5-3"/></svg>',
+  mic: '<svg viewBox="0 0 24 24"><rect x="9" y="3.5" width="6" height="11" rx="3"/><path d="M6 11.5a6 6 0 0 0 12 0M12 17.5v3"/></svg>',
+  bell: '<svg viewBox="0 0 24 24"><path d="M6.5 16.5V11a5.5 5.5 0 0 1 11 0v5.5l1.5 1.5H5z"/><path d="M10 20.5h4"/></svg>',
+  clipboard: '<svg viewBox="0 0 24 24"><rect x="6" y="5" width="12" height="15.5" rx="2.5"/><path d="M9.5 3.5h5v3h-5z"/></svg>',
+  screen: '<svg viewBox="0 0 24 24"><rect x="3.5" y="5" width="17" height="11.5" rx="2"/><path d="M9 20h6M12 16.5V20"/></svg>',
+  lock: '<svg viewBox="0 0 24 24"><rect x="5.5" y="10.5" width="13" height="9" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg>',
+}
+const PROMPT_ICONS: Record<PromptSpec['kind'], string> = {
+  permission: '<svg viewBox="0 0 24 24"><rect x="5.5" y="10.5" width="13" height="9" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg>',
+  info: '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 7.8v.2"/></svg>',
+  warning: '<svg viewBox="0 0 24 24"><path d="M12 4.5 20.5 19h-17z"/><path d="M12 10v4M12 16.8v.2"/></svg>',
+}
+
+function answerPrompt(index: number): void {
+  if (!activePrompt) return
+  activePrompt = null
+  promptEl.hidden = true
+  api.answer(index)
+}
+
+api.onShowPrompt((spec) => {
+  setIncognito(spec.incognito)
+  closeFrom(0)
+  settingsEl.hidden = true
+  document.body.classList.remove('settings-open')
+  activePrompt = spec
+  promptEl.querySelector('.prompt-icon')!.innerHTML = (spec.icon && PERMISSION_ICONS[spec.icon]) || PROMPT_ICONS[spec.kind] || PROMPT_ICONS.info
+  promptEl.querySelector('.prompt-title')!.textContent = spec.title
+  promptEl.querySelector('.prompt-message')!.textContent = spec.message
+  const detail = promptEl.querySelector<HTMLElement>('.prompt-detail')!
+  detail.textContent = spec.detail ?? ''
+  detail.hidden = !spec.detail
+  const buttons = promptEl.querySelector('.prompt-buttons')!
+  buttons.replaceChildren()
+  // Secondary choices first, the default (primary) one last, on the right.
+  const order = spec.buttons.map((label, index) => ({ label, index })).sort((a, b) => Number(a.index === spec.defaultId) - Number(b.index === spec.defaultId))
+  for (const { label, index } of order) {
+    const btn = Object.assign(document.createElement('button'), { type: 'button', className: `btn${index === spec.defaultId ? ' primary' : ''}`, textContent: label })
+    btn.onclick = () => answerPrompt(index)
+    buttons.append(btn)
+  }
+  promptEl.hidden = false
+  ;(buttons.lastElementChild as HTMLButtonElement | null)?.focus()
+})
+
+document.addEventListener(
+  'keydown',
+  (e) => {
+    if (activePrompt && e.key === 'Escape') {
+      e.stopImmediatePropagation()
+      answerPrompt(activePrompt.cancelId)
+    }
+  },
+  true,
+)
 
 // ---- Settings -------------------------------------------------------------------
 

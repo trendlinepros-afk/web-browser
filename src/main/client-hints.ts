@@ -157,10 +157,14 @@ export function recordAcceptCh(ses: Session, url: string, headers: Record<string
   }
 }
 
-/** Adds the Sec-CH-UA headers Chromium would send for this request. */
-export function addClientHints(ses: Session, url: string, headers: Record<string, string>): void {
+/**
+ * Puts the Sec-CH-UA headers Chromium would send for this request into `out`, in Chrome's order
+ * (low-entropy hints first). `existing` are the request's current headers.
+ */
+export function addClientHints(ses: Session, url: string, existing: Record<string, string>, out: Record<string, string>): void {
   if (!isSecure(url)) return
-  if (Object.keys(headers).some((h) => h.toLowerCase() === 'sec-ch-ua')) return
+  if (Object.keys(existing).some((h) => h.toLowerCase() === 'sec-ch-ua')) return
+  const headers = out
   const m = uaMetadata()
   headers['sec-ch-ua'] = list(m.brands)
   headers['sec-ch-ua-mobile'] = '?0'

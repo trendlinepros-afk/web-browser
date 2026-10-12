@@ -29,32 +29,32 @@ if (location.protocol === 'http:' || location.protocol === 'https:') {
 
   contextBridge.executeInMainWorld({
     func: (cfg: PageConfig) => {
-      // Native-looking functions: bot checks often inspect Function.prototype.toString().
+      // Everything below is written as getters and method shorthand, the same shape as native
+      // functions (no .prototype, not constructible, "get x" names), and reports itself as
+      // "[native code]". Bot checks probe exactly these details.
       const nativeToString = Function.prototype.toString
       const disguised = new WeakSet<object>()
-      const disguise = <T extends object>(fn: T, name?: string): T => {
-        if (name) Object.defineProperty(fn, 'name', { value: name })
+      const disguise = <T extends object>(fn: T): T => {
         disguised.add(fn)
         return fn
       }
+      const getter = <T>(name: string, get: () => T) =>
+        disguise(Object.getOwnPropertyDescriptor({ get [name]() { return get() } }, name)!.get!)
       try {
-        Function.prototype.toString = disguise(function toString(this: object) {
-          if (disguised.has(this)) return `function ${(this as { name?: string }).name ?? ''}() { [native code] }`
-          return nativeToString.call(this)
-        })
+        const replacement = {
+          toString(this: object) {
+            if (disguised.has(this)) return `function ${(this as { name?: string }).name ?? ''}() { [native code] }`
+            return nativeToString.call(this)
+          },
+        }.toString
+        Function.prototype.toString = disguise(replacement)
       } catch {
         // Ignore.
       }
 
       try {
         if (cfg.gpc && !('globalPrivacyControl' in Navigator.prototype)) {
-          Object.defineProperty(Navigator.prototype, 'globalPrivacyControl', {
-            get: disguise(function () {
-              return true
-            }, 'get globalPrivacyControl'),
-            configurable: true,
-            enumerable: true,
-          })
+          Object.defineProperty(Navigator.prototype, 'globalPrivacyControl', { get: getter('globalPrivacyControl', () => true), configurable: true, enumerable: true })
         }
       } catch {
         // Ignore.
@@ -64,13 +64,7 @@ if (location.protocol === 'http:' || location.protocol === 'https:') {
         // Keep navigator.languages in step with the Accept-Language header.
         const languages = Object.freeze([...cfg.languages])
         if (languages.length && navigator.languages.join() !== languages.join()) {
-          Object.defineProperty(Navigator.prototype, 'languages', {
-            get: disguise(function () {
-              return languages
-            }, 'get languages'),
-            configurable: true,
-            enumerable: true,
-          })
+          Object.defineProperty(Navigator.prototype, 'languages', { get: getter('languages', () => languages), configurable: true, enumerable: true })
         }
       } catch {
         // Ignore.
@@ -83,28 +77,31 @@ if (location.protocol === 'http:' || location.protocol === 'https:') {
         const timing = performance.timing
         const nav = () => performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming | undefined
         if (!('app' in chrome)) {
+          const methods = {
+            getDetails() {
+              return null
+            },
+            getIsInstalled() {
+              return false
+            },
+            runningState() {
+              return 'cannot_run'
+            },
+          }
           chrome.app = {
             isInstalled: false,
             InstallState: { DISABLED: 'disabled', INSTALLED: 'installed', NOT_INSTALLED: 'not_installed' },
             RunningState: { CANNOT_RUN: 'cannot_run', READY_TO_RUN: 'ready_to_run', RUNNING: 'running' },
-            getDetails: disguise(function getDetails() {
-              return null
-            }),
-            getIsInstalled: disguise(function getIsInstalled() {
-              return false
-            }),
-            runningState: disguise(function runningState() {
-              return 'cannot_run'
-            }),
+            getDetails: disguise(methods.getDetails),
+            getIsInstalled: disguise(methods.getIsInstalled),
+            runningState: disguise(methods.runningState),
           }
         }
-        if (!('csi' in chrome)) {
-          chrome.csi = disguise(function csi() {
+        const timingFns = {
+          csi() {
             return { onloadT: timing.loadEventEnd || Date.now(), pageT: performance.now(), startE: timing.navigationStart, tran: 15 }
-          })
-        }
-        if (!('loadTimes' in chrome)) {
-          chrome.loadTimes = disguise(function loadTimes() {
+          },
+          loadTimes() {
             const protocol = nav()?.nextHopProtocol || 'http/1.1'
             const multiplexed = protocol === 'h2' || protocol === 'h3'
             const paint = performance.getEntriesByName('first-paint')[0]
@@ -123,8 +120,10 @@ if (location.protocol === 'http:' || location.protocol === 'https:') {
               wasFetchedViaSpdy: multiplexed,
               wasNpnNegotiated: multiplexed,
             }
-          })
+          },
         }
+        if (!('csi' in chrome)) chrome.csi = disguise(timingFns.csi)
+        if (!('loadTimes' in chrome)) chrome.loadTimes = disguise(timingFns.loadTimes)
       } catch {
         // Ignore.
       }
@@ -134,30 +133,33 @@ if (location.protocol === 'http:' || location.protocol === 'https:') {
         if (undecided.has('notifications') && typeof Notification !== 'undefined') {
           const real = Object.getOwnPropertyDescriptor(Notification, 'permission')?.get
           Object.defineProperty(Notification, 'permission', {
-            get: disguise(function () {
-              const value = real ? real.call(Notification) : 'default'
+            get: getter('permission', () => {
+              const value = real ? (real.call(Notification) as string) : 'default'
               return value === 'denied' ? 'default' : value
-            }, 'get permission'),
+            }),
             configurable: true,
             enumerable: true,
           })
         }
         const perms = navigator.permissions
         if (perms) {
-          const query = perms.query.bind(perms)
+          const realQuery = perms.query.bind(perms)
           const PermissionsProto = Object.getPrototypeOf(perms) as { query: Permissions['query'] }
-          PermissionsProto.query = disguise(function (this: Permissions, descriptor: PermissionDescriptor) {
-            return query(descriptor).then((status) => {
-              if (status.state !== 'denied' || !undecided.has(descriptor?.name)) return status
-              return new Proxy(status, {
-                get(target, prop) {
-                  if (prop === 'state') return 'prompt'
-                  const value = Reflect.get(target, prop, target)
-                  return typeof value === 'function' ? value.bind(target) : value
-                },
+          const replacement = {
+            query(descriptor: PermissionDescriptor) {
+              return realQuery(descriptor).then((status) => {
+                if (status.state !== 'denied' || !undecided.has(descriptor?.name)) return status
+                return new Proxy(status, {
+                  get(target, prop) {
+                    if (prop === 'state') return 'prompt'
+                    const value = Reflect.get(target, prop, target)
+                    return typeof value === 'function' ? value.bind(target) : value
+                  },
+                })
               })
-            })
-          }, 'query') as Permissions['query']
+            },
+          }.query
+          PermissionsProto.query = disguise(replacement) as Permissions['query']
         }
       } catch {
         // Ignore.

@@ -165,6 +165,79 @@ body.settings-open #scrim {
   }
 }
 
+/* ---- Prompts ----------------------------------------------------------------------- */
+
+.prompt {
+  position: fixed;
+  top: 96px;
+  left: 50%;
+  width: min(440px, calc(100vw - 32px));
+  transform: translateX(-50%);
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  gap: 4px 14px;
+  padding: 18px 18px 16px;
+  border-radius: 16px;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--bg-elev), var(--bg-elev)) padding-box,
+    var(--grad) border-box;
+  box-shadow: var(--shadow), 0 0 40px rgba(106, 92, 255, 0.18);
+  animation: drop 160ms cubic-bezier(0.2, 0.9, 0.3, 1.15);
+}
+body.frame-integrated.platform-win32 .prompt {
+  top: 92px;
+}
+.prompt-icon {
+  width: 40px;
+  height: 40px;
+  border-radius: 12px;
+  background: var(--grad);
+  color: #fff;
+  display: grid;
+  place-items: center;
+}
+.prompt-icon svg {
+  width: 20px;
+  height: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.prompt-title {
+  font: 600 14px var(--font);
+  overflow-wrap: anywhere;
+}
+.prompt-message {
+  margin-top: 2px;
+  color: var(--muted);
+  line-height: 1.4;
+}
+.prompt-detail {
+  margin-top: 8px;
+  font-size: 12px;
+  color: var(--faint);
+  line-height: 1.4;
+}
+.prompt-buttons {
+  grid-column: 1 / -1;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 12px;
+}
+.prompt-buttons .btn {
+  min-width: 84px;
+}
+@keyframes drop {
+  from {
+    opacity: 0;
+    transform: translate(-50%, -8px);
+  }
+}
+
 /* ---- Settings panel ------------------------------------------------------------ */
 
 #settings {
@@ -384,6 +457,16 @@ button.icon svg {
 }
 .btn.primary:hover {
   filter: brightness(1.08);
+}
+.btn:focus-visible,
+.select:focus-visible,
+.switch:focus-visible,
+button.icon:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.btn:focus:not(:focus-visible) {
+  outline: none;
 }
 .btn.danger {
   color: var(--danger);
