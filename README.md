@@ -67,6 +67,15 @@ Your tabs come back after the restart. The browser also checks quietly on startu
   everything else goes under *Other bookmarks › Imported from Firefox*. Importing again skips pages you already have.
 - **Import/export HTML:** works with exports from Firefox, Chrome, Edge and Safari, and is a good way to back up.
 
+### Tab groups
+- **Open a bookmarks folder as a group:** right-click the folder on the bookmarks bar → **Open in group**. The group
+  is named after the folder.
+- **Group any tab:** right-click a tab → **Add to new group** (type a name and press Enter) or **Add to group**.
+- **The group label:** click it to collapse or expand the group, double-click to rename it, right-click for color,
+  new tab in group, move to a new window, ungroup or close.
+- **Drag and drop:** drag a tab onto a group (or between its tabs) to add it, drag it out past the group's edge to
+  remove it, and drag the label to move the whole group. Groups come back after a restart.
+
 ### Ads, trackers and privacy
 The shield button next to the address bar shows how many ads and trackers were blocked on the current page.
 Click it to turn blocking off for a site that misbehaves, turn cookie-banner hiding on or off, or refresh the

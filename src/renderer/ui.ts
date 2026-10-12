@@ -1,5 +1,5 @@
 // Browser UI: tab strip + toolbar. Plain DOM, no framework; state is pushed from the main process.
-import type { BookmarkBarState, BookmarkItem, OpenDisposition, TabInfo, UiApi, WindowState } from '../shared/types'
+import type { BookmarkBarState, BookmarkItem, OpenDisposition, TabGroupInfo, TabInfo, UiApi, WindowState } from '../shared/types'
 
 declare global {
   interface Window {
@@ -133,6 +133,59 @@ function renderTab(el: HTMLDivElement, tab: TabInfo, isActive: boolean): void {
   el.append(close)
 }
 
+// ---- Tab groups -------------------------------------------------------------
+
+const groupEls = new Map<number, HTMLDivElement>()
+/** The group whose name is being edited in place, if any. */
+let renamingGroup: number | null = null
+
+function renderGroupChip(el: HTMLDivElement, group: TabGroupInfo, count: number): void {
+  const renaming = renamingGroup === group.id
+  const key = [group.title, group.color, group.collapsed, count, renaming].join('|')
+  if (el.dataset.key === key) return
+  el.dataset.key = key
+  el.className = `group-chip g-${group.color}`
+  el.classList.toggle('collapsed', group.collapsed)
+  el.classList.toggle('untitled', !group.title && !renaming)
+  el.draggable = !renaming
+  el.title = `${group.title || 'Unnamed group'}: ${count} tab${count === 1 ? '' : 's'}\nClick to ${group.collapsed ? 'expand' : 'collapse'}, double-click to rename`
+  el.replaceChildren()
+  if (renaming) {
+    const input = Object.assign(document.createElement('input'), { className: 'group-name', value: group.title, placeholder: 'Name this group', spellcheck: false, maxLength: 60 })
+    input.size = Math.max(8, group.title.length + 1)
+    let done = false
+    const finish = (save: boolean) => {
+      if (done) return
+      done = true
+      renamingGroup = null
+      if (save) api.renameGroup(group.id, input.value)
+      el.dataset.key = ''
+      render()
+    }
+    input.oninput = () => (input.size = Math.max(8, input.value.length + 1))
+    input.onkeydown = (e) => {
+      e.stopPropagation()
+      if (e.key === 'Enter') finish(true)
+      else if (e.key === 'Escape') finish(false)
+    }
+    input.onblur = () => finish(true)
+    input.onmousedown = (e) => e.stopPropagation()
+    el.append(input)
+    requestAnimationFrame(() => {
+      input.focus()
+      input.select()
+    })
+    return
+  }
+  el.append(Object.assign(document.createElement('span'), { className: 'name', textContent: group.title }))
+  if (group.collapsed) el.append(Object.assign(document.createElement('span'), { className: 'count', textContent: String(count) }))
+}
+
+api.onRenameGroup((groupId) => {
+  renamingGroup = groupId
+  render()
+})
+
 function render(): void {
   if (!state) return
   const ids = new Set(state.tabs.map((t) => t.id))
@@ -142,15 +195,44 @@ function render(): void {
       tabEls.delete(id)
     }
   }
+  const groups = new Map(state.groups.map((g) => [g.id, g]))
+  for (const [id, el] of groupEls) {
+    if (!groups.has(id)) {
+      el.remove()
+      groupEls.delete(id)
+    }
+  }
+  // The strip: each group's chip, then its tabs.
+  const sequence: HTMLDivElement[] = []
   state.tabs.forEach((tab, index) => {
+    const group = tab.groupId !== null ? groups.get(tab.groupId) : undefined
+    if (group && state!.tabs[index - 1]?.groupId !== group.id) {
+      let chip = groupEls.get(group.id)
+      if (!chip) {
+        chip = document.createElement('div')
+        chip.dataset.group = String(group.id)
+        groupEls.set(group.id, chip)
+      }
+      renderGroupChip(chip, group, state!.tabs.filter((t) => t.groupId === group.id).length)
+      sequence.push(chip)
+    }
     let el = tabEls.get(tab.id)
     if (!el) {
       el = document.createElement('div')
       el.dataset.id = String(tab.id)
+      el.draggable = true
       tabEls.set(tab.id, el)
     }
-    if (tabsEl.children[index] !== el) tabsEl.insertBefore(el, tabsEl.children[index] ?? null)
     renderTab(el, tab, tab.id === state!.activeTabId)
+    el.classList.toggle('grouped', !!group)
+    for (const c of [...el.classList]) if (c.startsWith('g-')) el.classList.remove(c)
+    if (group) el.classList.add(`g-${group.color}`)
+    el.classList.toggle('group-end', !!group && state!.tabs[index + 1]?.groupId !== group.id)
+    el.hidden = !!group?.collapsed
+    sequence.push(el)
+  })
+  sequence.forEach((el, index) => {
+    if (tabsEl.children[index] !== el) tabsEl.insertBefore(el, tabsEl.children[index] ?? null)
   })
 
   const tab = active()
@@ -243,6 +325,114 @@ function renderExtensions(partition: string | null): void {
 
 // ---- Events ---------------------------------------------------------------
 
+// Group chips: click collapses/expands, double-click renames, right-click for the group menu.
+tabsEl.addEventListener('click', (e) => {
+  const chip = (e.target as HTMLElement).closest<HTMLDivElement>('.group-chip')
+  if (!chip || renamingGroup !== null || e.detail > 1) return
+  const id = Number(chip.dataset.group)
+  // Wait a moment so a double-click (rename) doesn't also collapse.
+  setTimeout(() => {
+    if (renamingGroup !== id) api.toggleGroupCollapsed(id)
+  }, 220)
+})
+tabsEl.addEventListener('dblclick', (e) => {
+  const chip = (e.target as HTMLElement).closest<HTMLDivElement>('.group-chip')
+  if (!chip) return
+  e.stopPropagation()
+  renamingGroup = Number(chip.dataset.group)
+  render()
+})
+
+// ---- Dragging tabs and groups ---------------------------------------------------
+
+let tabDrag: { kind: 'tab' | 'group'; id: number } | null = null
+let dropMarked: HTMLElement[] = []
+
+function clearDropMarks(): void {
+  for (const el of dropMarked) el.classList.remove('drop-before', 'drop-after', 'drop-into')
+  dropMarked = []
+}
+
+function mark(el: HTMLElement | undefined, cls: string): void {
+  if (!el) return
+  el.classList.add(cls)
+  dropMarked.push(el)
+}
+
+/** Where a drop at this point would go: before which tab, and into which group. */
+function tabDropTarget(e: DragEvent): { before: number | null; group: number | null } {
+  const tabs = state?.tabs ?? []
+  const target = (e.target as HTMLElement).closest<HTMLElement>('.tab, .group-chip')
+  clearDropMarks()
+  if (!target || !tabsEl.contains(target)) {
+    mark(tabsEl.lastElementChild as HTMLElement | undefined, 'drop-after')
+    return { before: null, group: null }
+  }
+  const r = target.getBoundingClientRect()
+  const leftHalf = e.clientX < r.left + r.width / 2
+  if (target.classList.contains('group-chip')) {
+    const id = Number(target.dataset.group)
+    const members = tabs.filter((t) => t.groupId === id)
+    const collapsed = state?.groups.find((g) => g.id === id)?.collapsed
+    if (leftHalf || tabDrag?.kind === 'group') {
+      mark(target, 'drop-before')
+      return { before: members[0]?.id ?? null, group: null }
+    }
+    mark(target, 'drop-into')
+    if (collapsed) {
+      const after = tabs[tabs.indexOf(members[members.length - 1]) + 1]
+      return { before: after?.id ?? null, group: id }
+    }
+    return { before: members[0]?.id ?? null, group: id }
+  }
+  const index = tabs.findIndex((t) => t.id === Number(target.dataset.id))
+  const tab = tabs[index]
+  if (!tab) return { before: null, group: null }
+  if (leftHalf) {
+    mark(target, 'drop-before')
+    // Before the first tab of a group means outside it; anywhere else inside it means in it.
+    const inGroup = tab.groupId !== null && tabs[index - 1]?.groupId === tab.groupId
+    if (inGroup) mark(groupEls.get(tab.groupId!), 'drop-into')
+    return { before: tab.id, group: inGroup ? tab.groupId : null }
+  }
+  mark(target, 'drop-after')
+  if (tab.groupId !== null) mark(groupEls.get(tab.groupId), 'drop-into')
+  return { before: tabs[index + 1]?.id ?? null, group: tab.groupId }
+}
+
+tabsEl.addEventListener('dragstart', (e) => {
+  const el = (e.target as HTMLElement).closest<HTMLElement>('.tab, .group-chip')
+  if (!el) return
+  tabDrag = el.classList.contains('group-chip') ? { kind: 'group', id: Number(el.dataset.group) } : { kind: 'tab', id: Number(el.dataset.id) }
+  e.dataTransfer!.effectAllowed = 'move'
+  e.dataTransfer!.setData('text/plain', '')
+  el.classList.add('dragging')
+})
+for (const zone of [tabsEl, newTabBtn] as HTMLElement[]) {
+  zone.addEventListener('dragover', (e) => {
+    if (!tabDrag) return
+    e.preventDefault()
+    e.dataTransfer!.dropEffect = 'move'
+    tabDropTarget(e)
+  })
+  zone.addEventListener('drop', (e) => {
+    if (!tabDrag) return
+    e.preventDefault()
+    const { before, group } = tabDropTarget(e)
+    if (tabDrag.kind === 'group') api.moveGroup(tabDrag.id, before)
+    else api.moveTab(tabDrag.id, before, group)
+    clearDropMarks()
+  })
+}
+tabsEl.addEventListener('dragleave', (e) => {
+  if (!tabsEl.contains(e.relatedTarget as Node)) clearDropMarks()
+})
+tabsEl.addEventListener('dragend', () => {
+  tabDrag = null
+  clearDropMarks()
+  for (const el of tabsEl.querySelectorAll('.dragging')) el.classList.remove('dragging')
+})
+
 tabsEl.addEventListener('mousedown', (e) => {
   const el = (e.target as HTMLElement).closest<HTMLDivElement>('.tab')
   if (!el || (e.target as HTMLElement).closest('button')) return
@@ -254,6 +444,12 @@ tabsEl.addEventListener('auxclick', (e) => {
   if (el && e.button === 1) api.closeTab(Number(el.dataset.id))
 })
 tabsEl.addEventListener('contextmenu', (e) => {
+  const chip = (e.target as HTMLElement).closest<HTMLDivElement>('.group-chip')
+  if (chip) {
+    e.preventDefault()
+    api.showGroupMenu(Number(chip.dataset.group), e.clientX, e.clientY)
+    return
+  }
   const el = (e.target as HTMLElement).closest<HTMLDivElement>('.tab')
   if (!el) return
   e.preventDefault()

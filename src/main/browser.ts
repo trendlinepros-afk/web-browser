@@ -249,6 +249,22 @@ export class Browser {
           tab.webContents?.focus()
           return
         }
+        case 'moveTab': {
+          const before = typeof args[1] === 'number' ? (w.findTab(args[1]) ?? null) : null
+          return tab && w.moveTab(tab, before, typeof args[2] === 'number' ? args[2] : null)
+        }
+        case 'moveGroup': {
+          const before = typeof args[1] === 'number' ? (w.findTab(args[1]) ?? null) : null
+          return w.moveGroup(Number(args[0]), before)
+        }
+        case 'toggleGroupCollapsed': {
+          const group = w.groups.get(Number(args[0]))
+          return group && w.updateGroup(group.id, { collapsed: !group.collapsed })
+        }
+        case 'renameGroup':
+          return typeof args[1] === 'string' && w.updateGroup(Number(args[0]), { title: args[1] })
+        case 'showGroupMenu':
+          return this.onShowGroupMenu?.(w, Number(args[0]), Number(args[1]), Number(args[2]))
         case 'goHome':
           return tab && w.goHome(tab)
         case 'goBack':
@@ -278,6 +294,7 @@ export class Browser {
 
   onShowAppMenu: ((w: BrowserWindowController, x: number, y: number) => void) | null = null
   onShowTabMenu: ((w: BrowserWindowController, tab: Tab, x: number, y: number) => void) | null = null
+  onShowGroupMenu: ((w: BrowserWindowController, groupId: number, x: number, y: number) => void) | null = null
   onShowShieldMenu: ((w: BrowserWindowController, x: number, y: number) => void) | null = null
   onBookmarkCommand: ((w: BrowserWindowController, name: string, args: unknown[]) => void) | null = null
 }

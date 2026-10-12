@@ -60,7 +60,7 @@ export class BookmarkUi {
     if (node) this.openNode(w, node, disposition)
   }
 
-  private openAll(w: BrowserWindowController, folder: BookmarkNode, opts: { incognito?: boolean; newWindow?: boolean } = {}): void {
+  private openAll(w: BrowserWindowController, folder: BookmarkNode, opts: { incognito?: boolean; newWindow?: boolean; group?: boolean } = {}): void {
     const urls = (folder.children ?? []).filter((c) => c.url && !c.url.startsWith('javascript:')).map((c) => c.url!)
     if (urls.length === 0) return
     if (urls.length > 15) {
@@ -76,6 +76,11 @@ export class BookmarkUi {
     if (opts.newWindow || opts.incognito) {
       const target = this.browser.createWindow({ incognito: opts.incognito, url: urls[0] })
       for (const url of urls.slice(1)) target.createTab({ url, background: true })
+    } else if (opts.group) {
+      // A tab group named after the folder.
+      const tabs = urls.map((url) => w.createTab({ url, background: true }))
+      w.createGroup(tabs, folder.title)
+      w.activateTab(tabs[0])
     } else {
       for (const url of urls) w.createTab({ url, background: true })
     }
@@ -105,7 +110,11 @@ export class BookmarkUi {
     )
     if (items.length === 0) return [{ label: '(empty)', enabled: false }]
     if (children.filter((c) => c.url).length > 1) {
-      items.push({ type: 'separator' }, { label: 'Open all in new tabs', click: () => this.openAll(w, folder) })
+      items.push(
+        { type: 'separator' },
+        { label: 'Open all in new tabs', click: () => this.openAll(w, folder) },
+        { label: 'Open in group', click: () => this.openAll(w, folder, { group: true }) },
+      )
     }
     return items
   }
@@ -139,6 +148,7 @@ export class BookmarkUi {
     } else if (node?.type === 'folder' && node.id !== OTHER) {
       items.push(
         { label: 'Open all in new tabs', click: () => this.openAll(w, node) },
+        { label: 'Open in group', click: () => this.openAll(w, node, { group: true }) },
         { label: 'Open all in new window', click: () => this.openAll(w, node, { newWindow: true }) },
         { label: 'Open all in private window', click: () => this.openAll(w, node, { incognito: true }) },
         { type: 'separator' },

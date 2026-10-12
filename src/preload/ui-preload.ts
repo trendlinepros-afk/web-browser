@@ -15,6 +15,14 @@ const api: UiApi = {
   navigate: (id, input) => send('navigate', id, input),
   goBack: (id) => send('goBack', id),
   goHome: (id) => send('goHome', id),
+  moveTab: (id, beforeId, groupId) => send('moveTab', id, beforeId, groupId),
+  moveGroup: (groupId, beforeId) => send('moveGroup', groupId, beforeId),
+  showGroupMenu: (groupId, x, y) => send('showGroupMenu', groupId, x, y),
+  toggleGroupCollapsed: (groupId) => send('toggleGroupCollapsed', groupId),
+  renameGroup: (groupId, title) => send('renameGroup', groupId, title),
+  onRenameGroup: (cb) => {
+    ipcRenderer.on('ui:rename-group', (_e, groupId: number) => cb(groupId))
+  },
   goForward: (id) => send('goForward', id),
   reload: (id) => send('reload', id),
   stop: (id) => send('stop', id),

@@ -217,11 +217,137 @@ svg {
   height: 30px;
 }
 
+/* ---- Tab groups ------------------------------------------------------------ */
+
+.g-violet { --g: #8b7bff; }
+.g-blue { --g: #4f8dff; }
+.g-cyan { --g: #19c6dc; }
+.g-green { --g: #2fbf71; }
+.g-yellow { --g: #e2b21c; }
+.g-orange { --g: #f08a3c; }
+.g-pink { --g: #ec5fa8; }
+.g-red { --g: #ec4f5c; }
+.g-grey { --g: #8b90a8; }
+
+.group-chip {
+  flex: none;
+  height: 24px;
+  max-width: 160px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 10px;
+  margin-left: 4px;
+  border-radius: 8px;
+  background: var(--g);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 650;
+  letter-spacing: 0.01em;
+  cursor: default;
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.08), 0 2px 10px color-mix(in srgb, var(--g) 35%, transparent);
+  transition: filter 120ms, box-shadow 120ms;
+}
+.group-chip:hover {
+  filter: brightness(1.08);
+}
+.group-chip .name {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.group-chip.untitled {
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  border-radius: 50%;
+  justify-content: center;
+}
+.group-chip.untitled .name {
+  display: none;
+}
+.group-chip.untitled.collapsed {
+  width: auto;
+  height: 24px;
+  padding: 0 8px;
+  border-radius: 8px;
+}
+.group-chip .count {
+  flex: none;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  border-radius: 6px;
+  background: rgba(0, 0, 0, 0.22);
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+}
+.group-chip .group-name {
+  width: auto;
+  min-width: 0;
+  height: 20px;
+  padding: 0 4px;
+  border: 0;
+  border-radius: 5px;
+  background: rgba(0, 0, 0, 0.25);
+  color: #fff;
+  font: inherit;
+  outline: none;
+}
+.group-chip .group-name::placeholder {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+/* A grouped tab is underlined in its group's color; the line runs across the group. */
+.tab.grouped {
+  overflow: visible;
+}
+.tab.grouped::after {
+  content: '';
+  position: absolute;
+  left: -3px;
+  right: -3px;
+  bottom: -4px;
+  height: 3px;
+  background: var(--g);
+}
+.tab.grouped.group-end::after {
+  right: 6px;
+  border-radius: 0 3px 3px 0;
+}
+.tab.grouped .title {
+  overflow: hidden;
+}
+.tab.grouped.active {
+  background:
+    linear-gradient(var(--raised), var(--raised)) padding-box,
+    linear-gradient(var(--g), var(--g)) border-box;
+}
+
+/* Drag and drop */
+.tab.dragging,
+.group-chip.dragging {
+  opacity: 0.45;
+}
+.tab.drop-before,
+.group-chip.drop-before {
+  box-shadow: inset 3px 0 0 var(--accent, #6a5cff);
+}
+.tab.drop-after {
+  box-shadow: inset -3px 0 0 var(--accent, #6a5cff);
+}
+.group-chip.drop-into {
+  box-shadow: 0 0 0 2px var(--fg);
+}
+
 /* Integrated title bar: the strip drags the window; the OS draws the window buttons on top. */
 body.frame-integrated #tabstrip {
   -webkit-app-region: drag;
 }
 body.frame-integrated #tabstrip .tab,
+body.frame-integrated #tabstrip .group-chip,
 body.frame-integrated #tabstrip button {
   -webkit-app-region: no-drag;
 }

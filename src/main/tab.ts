@@ -10,6 +10,8 @@ export interface SavedTab {
   title: string
   favicon: string | null
   pinned: boolean
+  /** Index into SavedWindow.groups. */
+  group?: number
   history?: { entries: NavigationEntry[]; index: number }
 }
 
@@ -35,6 +37,7 @@ export class Tab {
   url = ''
   favicon: string | null = null
   pinned = false
+  groupId: number | null = null
   muted = false
   crashed = false
   htmlFullscreen = false
@@ -167,6 +170,7 @@ export class Tab {
       blocked: this.blockedCount,
       blockingActive: !!this.url && this.window.browser.blocker.activeFor(this.url),
       bookmarked: this.window.browser.bookmarks.isBookmarked(this.url),
+      groupId: this.groupId,
     }
   }
 

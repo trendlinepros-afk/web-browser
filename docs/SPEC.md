@@ -237,13 +237,22 @@ Goal: nothing should feel like Chrome or Firefox. Same two-row layout (tabs abov
   one shared transparent overlay (`popup.ts`, `renderer/overlay.*`), not by the OS. Keyboard navigable,
   submenus, checkmarks. The overlay shares the UI's renderer process, so menus cost ~no memory.
 - **Settings panel** (⚙ › Settings or Ctrl+,): a slide-in sheet with sections (Appearance, Search, Speed &
-  memory, Privacy & blocking, Startup, Bookmarks, Extensions, Claude, Updates) replacing nested menus.
+  memory, Privacy & blocking, Clear browsing data, Startup & home, Bookmarks, Extensions, Claude, Updates) replacing nested menus.
 - Wording: "Private window" instead of Chrome's "Incognito".
+
+### Stage 1.9: Home button & tab groups (done)
+- **Home button** right of reload (Alt+Home); Settings › Startup & home sets the homepage (empty = blank page with
+  the address bar focused), "use current page", and hides the button.
+- **Tab groups** (`window.ts` owns them; a group's tabs are always contiguous, pinned tabs never grouped):
+  bookmarks folder → **Open in group** (named after the folder); tab menu → Add to new group / Add to group / Remove;
+  colored label chip in the strip (click collapses, double-click renames inline, right-click: color, new tab in
+  group, move to new window, ungroup, close). Drag tabs to reorder and into/out of groups; drag the label to move
+  the whole group. Groups are saved with the session.
 
 ### Stage 2: UI & everyday features
 Design target: Windows 11 (Fluent): rounded corners, Mica-style surfaces, Segoe UI Variable, accent color.
-- Tab animations, tab drag-reorder; themed dialogs for update notices and import results (permission prompts are done)
-- Find in page (Ctrl+F), zoom per site, print, reopen closed tab, tab drag-reorder
+- Tab animations; themed dialogs for update notices and import results (permission prompts are done)
+- Find in page (Ctrl+F), zoom per site, print, reopen closed tab
 - History, bookmarks (+ bookmark bar), address bar suggestions (history, bookmarks, search)
 - Downloads panel
 - Settings page (search engine, sleep timeout, startup behavior, MCP, updates)
@@ -255,7 +264,7 @@ Design target: Windows 11 (Fluent): rounded corners, Mica-style surfaces, Segoe 
 - "Dangerous site" interstitial for top-level navigations to known malware/phishing domains
 - Optional third-party cookie blocking
 - Task manager (per-tab and per-extension memory and CPU)
-- Vertical tabs option, tab groups, split view
+- Vertical tabs option, split view, drag tabs between windows
 - Import bookmarks and passwords from Chrome
 - Richer MCP tools: multi-tab workflows, downloads, file upload, network capture
 - Code signing (Windows + macOS) so updates have no warnings

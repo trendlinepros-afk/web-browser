@@ -1,6 +1,6 @@
 import { BrowserWindow, nativeTheme, type HandlerDetails, type Session, type WebContentsView, type WindowOpenHandlerResponse } from 'electron'
 import path from 'node:path'
-import type { BookmarkBarState, WindowState } from '../shared/types'
+import { GROUP_COLORS, type BookmarkBarState, type GroupColor, type TabGroupInfo, type WindowState } from '../shared/types'
 import { BookmarkStore } from './bookmarks'
 import { getSettings } from './settings'
 import { APP_NAME } from './brand'
@@ -23,7 +23,10 @@ export interface SavedWindow {
   maximized: boolean
   tabs: SavedTab[]
   activeIndex: number
+  groups?: Omit<TabGroupInfo, 'id'>[]
 }
+
+let nextGroupId = 1
 
 export interface WindowOptions {
   incognito: boolean
@@ -40,6 +43,8 @@ export class BrowserWindowController {
   readonly session: Session
   tabs: Tab[] = []
   activeTab: Tab | null = null
+  /** Tab groups, in no particular order; their place in the strip comes from their tabs. */
+  readonly groups = new Map<number, TabGroupInfo>()
 
   private shownView: WebContentsView | null = null
   private statePending = false
@@ -108,7 +113,13 @@ export class BrowserWindowController {
 
     if (opts.restore && opts.restore.tabs.length > 0) {
       // Lazy restore: every tab starts asleep; only the active one is woken.
-      for (const saved of opts.restore.tabs) this.tabs.push(new Tab(this, this.session, { sleeping: saved }))
+      const groups = (opts.restore.groups ?? []).map((g) => this.addGroup(g.title, g.color, g.collapsed))
+      for (const saved of opts.restore.tabs) {
+        const tab = new Tab(this, this.session, { sleeping: saved })
+        tab.groupId = saved.group !== undefined ? (groups[saved.group]?.id ?? null) : null
+        this.tabs.push(tab)
+      }
+      this.normalizeGroups()
       const active = this.tabs[Math.min(Math.max(opts.restore.activeIndex, 0), this.tabs.length - 1)]
       this.activateTab(active)
     } else {
@@ -139,13 +150,19 @@ export class BrowserWindowController {
 
   private insertTab(tab: Tab, index: number | undefined, background = false): void {
     if (index === undefined || index < 0 || index > this.tabs.length) this.tabs.push(tab)
-    else this.tabs.splice(index, 0, tab)
+    else {
+      // A tab opened from inside a group (a link, "new tab to the right") joins that group.
+      this.tabs.splice(index, 0, tab)
+      tab.groupId ??= this.tabs[index - 1]?.groupId ?? null
+    }
     if (!background || !this.activeTab) this.activateTab(tab)
     else tab.lastActiveAt = Date.now()
     this.pushState()
   }
 
   activateTab(tab: Tab): void {
+    const group = tab.groupId !== null ? this.groups.get(tab.groupId) : undefined
+    if (group?.collapsed) group.collapsed = false
     const previous = this.activeTab
     if (previous && previous !== tab) previous.lastActiveAt = Date.now()
     this.activeTab = tab
@@ -178,6 +195,7 @@ export class BrowserWindowController {
       this.win.close()
       return
     }
+    this.normalizeGroups()
     this.pushState()
   }
 
@@ -189,6 +207,129 @@ export class BrowserWindowController {
 
   findTab(id: number): Tab | undefined {
     return this.tabs.find((t) => t.id === id)
+  }
+
+  /** Puts a tab before another one (null: at the end), inside a group or not. Pinned tabs stay pinned. */
+  moveTab(tab: Tab, before: Tab | null, groupId: number | null): void {
+    if (before === tab) before = this.tabs[this.tabs.indexOf(tab) + 1] ?? null
+    this.tabs.splice(this.tabs.indexOf(tab), 1)
+    let index = before ? this.tabs.indexOf(before) : this.tabs.length
+    if (index === -1) index = this.tabs.length
+    const pinnedCount = this.tabs.filter((t) => t.pinned).length
+    index = tab.pinned ? Math.min(index, pinnedCount) : Math.max(index, pinnedCount)
+    this.tabs.splice(index, 0, tab)
+    tab.groupId = !tab.pinned && groupId !== null && this.groups.has(groupId) ? groupId : null
+    this.groupsChanged()
+  }
+
+  // ---- Tab groups -----------------------------------------------------------
+
+  private addGroup(title: string, color?: GroupColor, collapsed = false): TabGroupInfo {
+    const used = new Set([...this.groups.values()].map((g) => g.color))
+    const group: TabGroupInfo = {
+      id: nextGroupId++,
+      title,
+      color: color && GROUP_COLORS.includes(color) ? color : (GROUP_COLORS.find((c) => !used.has(c)) ?? GROUP_COLORS[this.groups.size % GROUP_COLORS.length]),
+      collapsed,
+    }
+    this.groups.set(group.id, group)
+    return group
+  }
+
+  /** Groups the given tabs together where the first of them is. */
+  createGroup(tabs: Tab[], title = ''): TabGroupInfo {
+    const group = this.addGroup(title)
+    const members = this.tabs.filter((t) => tabs.includes(t))
+    for (const t of members) {
+      t.pinned = false
+      t.groupId = group.id
+    }
+    // Gather the members where the first one is.
+    const first = this.tabs.indexOf(members[0])
+    const rest = this.tabs.filter((t) => !members.includes(t))
+    const insertAt = rest.indexOf(this.tabs.slice(first).find((t) => !members.includes(t))!)
+    rest.splice(insertAt === -1 ? rest.length : insertAt, 0, ...members)
+    this.tabs = rest
+    this.groupsChanged()
+    return group
+  }
+
+  addToGroup(tab: Tab, groupId: number): void {
+    const last = this.tabs.findLast((t) => t.groupId === groupId)
+    tab.pinned = false
+    this.moveTab(tab, last ? (this.tabs[this.tabs.indexOf(last) + 1] ?? null) : null, groupId)
+  }
+
+  removeFromGroup(tab: Tab): void {
+    if (tab.groupId === null) return
+    const last = this.tabs.findLast((t) => t.groupId === tab.groupId)!
+    // Step out to just after the group so the rest stays together.
+    this.moveTab(tab, last === tab ? (this.tabs[this.tabs.indexOf(tab) + 1] ?? null) : (this.tabs[this.tabs.indexOf(last) + 1] ?? null), null)
+  }
+
+  /** Moves a whole group before a tab (null: to the end). It can't land inside another group. */
+  moveGroup(groupId: number, before: Tab | null): void {
+    const members = this.tabs.filter((t) => t.groupId === groupId)
+    if (!members.length || (before && members.includes(before))) return
+    if (before && before.groupId !== null) before = this.tabs.find((t) => t.groupId === before!.groupId) ?? before
+    const rest = this.tabs.filter((t) => t.groupId !== groupId)
+    const pinnedCount = rest.filter((t) => t.pinned).length
+    let index = before ? rest.indexOf(before) : rest.length
+    index = Math.max(index === -1 ? rest.length : index, pinnedCount)
+    rest.splice(index, 0, ...members)
+    this.tabs = rest
+    this.groupsChanged()
+  }
+
+  updateGroup(groupId: number, change: Partial<Pick<TabGroupInfo, 'title' | 'color' | 'collapsed'>>): void {
+    const group = this.groups.get(groupId)
+    if (!group) return
+    if (change.title !== undefined) group.title = change.title.trim().slice(0, 60)
+    if (change.color !== undefined && GROUP_COLORS.includes(change.color)) group.color = change.color
+    if (change.collapsed !== undefined && change.collapsed !== group.collapsed) {
+      if (change.collapsed && this.activeTab?.groupId === groupId) {
+        // Like Chrome: collapsing the group you're in moves you to the nearest tab outside it.
+        const i = this.tabs.indexOf(this.activeTab)
+        const outside = [...this.tabs.slice(i + 1), ...this.tabs.slice(0, i).reverse()].find((t) => t.groupId !== groupId)
+        if (outside) this.activateTab(outside)
+        else this.createTab()
+      }
+      group.collapsed = change.collapsed
+    }
+    this.groupsChanged()
+  }
+
+  ungroup(groupId: number): void {
+    for (const t of this.tabs) if (t.groupId === groupId) t.groupId = null
+    this.groupsChanged()
+  }
+
+  closeGroup(groupId: number): void {
+    for (const t of this.tabs.filter((t) => t.groupId === groupId)) this.closeTab(t)
+  }
+
+  /** Keeps every group's tabs side by side and drops empty groups. */
+  normalizeGroups(): void {
+    const ordered: Tab[] = []
+    const placed = new Set<number>()
+    for (const t of this.tabs) {
+      if (t.pinned) t.groupId = null
+      if (t.groupId === null || !this.groups.has(t.groupId)) {
+        t.groupId = null
+        ordered.push(t)
+      } else if (!placed.has(t.groupId)) {
+        placed.add(t.groupId)
+        ordered.push(...this.tabs.filter((x) => x.groupId === t.groupId))
+      }
+    }
+    this.tabs = ordered
+    for (const id of this.groups.keys()) if (!placed.has(id)) this.groups.delete(id)
+  }
+
+  private groupsChanged(): void {
+    this.normalizeGroups()
+    this.pushState()
+    this.browser.scheduleSessionSave()
   }
 
   // ---- Views & layout -----------------------------------------------------
@@ -351,16 +492,31 @@ export class BrowserWindowController {
       mcpEnabled: this.browser.mcpEnabled(),
       accent: accentColor(),
       showHomeButton: getSettings().showHomeButton,
+      groups: [...this.groups.values()],
     }
   }
 
   toSaved(): SavedWindow {
     const normal = this.win.getNormalBounds()
+    const tabs = this.tabs.filter((t) => t.url)
+    const groupIds = [...new Set(tabs.map((t) => t.groupId).filter((id): id is number => id !== null))]
     return {
       bounds: normal,
       maximized: this.win.isMaximized(),
-      tabs: this.tabs.filter((t) => t.url).map((t) => t.toSaved()),
-      activeIndex: Math.max(0, this.tabs.filter((t) => t.url).indexOf(this.activeTab!)),
+      tabs: tabs.map((t) => ({ ...t.toSaved(), ...(t.groupId !== null ? { group: groupIds.indexOf(t.groupId) } : {}) })),
+      activeIndex: Math.max(0, tabs.indexOf(this.activeTab!)),
+      groups: groupIds.map((id) => {
+        const { title, color, collapsed } = this.groups.get(id)!
+        return { title, color, collapsed }
+      }),
+    }
+  }
+
+  /** Asks the UI to show the name editor for a group. */
+  startRenamingGroup(groupId: number): void {
+    if (this.uiReady && !this.win.isDestroyed()) {
+      this.win.webContents.focus()
+      this.win.webContents.send('ui:rename-group', groupId)
     }
   }
 }

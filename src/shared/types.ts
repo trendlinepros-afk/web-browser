@@ -20,6 +20,19 @@ export interface TabInfo {
   blockingActive: boolean
   /** The page is bookmarked (filled star). */
   bookmarked: boolean
+  /** The tab group this tab belongs to, if any. A group's tabs are always next to each other. */
+  groupId: number | null
+}
+
+export const GROUP_COLORS = ['violet', 'blue', 'cyan', 'green', 'yellow', 'orange', 'pink', 'red', 'grey'] as const
+export type GroupColor = (typeof GROUP_COLORS)[number]
+
+export interface TabGroupInfo {
+  id: number
+  title: string
+  color: GroupColor
+  /** Collapsed groups show only their label in the tab strip. */
+  collapsed: boolean
 }
 
 export interface BookmarkItem {
@@ -50,6 +63,7 @@ export interface WindowState {
   /** System accent color (#rrggbb) on Windows/macOS, else null. */
   accent: string | null
   showHomeButton: boolean
+  groups: TabGroupInfo[]
 }
 
 export type UpdateStatus =
@@ -70,6 +84,14 @@ export interface UiApi {
   navigate(tabId: number, input: string): void
   goBack(tabId: number): void
   goHome(tabId: number): void
+  /** Drag and drop in the tab strip: put the tab before another (null: at the end), in a group or none. */
+  moveTab(tabId: number, beforeTabId: number | null, groupId: number | null): void
+  moveGroup(groupId: number, beforeTabId: number | null): void
+  showGroupMenu(groupId: number, x: number, y: number): void
+  toggleGroupCollapsed(groupId: number): void
+  renameGroup(groupId: number, title: string): void
+  /** Main asks the UI to start editing a group's name (e.g. right after creating it). */
+  onRenameGroup(cb: (groupId: number) => void): void
   goForward(tabId: number): void
   reload(tabId: number): void
   stop(tabId: number): void

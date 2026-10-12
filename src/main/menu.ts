@@ -1,5 +1,5 @@
 import { app, BrowserWindow, clipboard, dialog, Menu, nativeTheme, shell, type MenuItemConstructorOptions } from 'electron'
-import type { SettingsModel } from '../shared/types'
+import { GROUP_COLORS, type SettingsModel } from '../shared/types'
 import type { Browser } from './browser'
 import type { BrowserWindowController } from './window'
 import type { Tab } from './tab'
@@ -43,6 +43,7 @@ export class Menus {
     browser.onShowAppMenu = (w, x, y) => this.showAppMenu(w, x, y)
     browser.onShowTabMenu = (w, tab, x, y) => this.showTabMenu(w, tab, x, y)
     browser.onShowShieldMenu = (w, x, y) => this.showShieldMenu(w, x, y)
+    browser.onShowGroupMenu = (w, groupId, x, y) => this.showGroupMenu(w, groupId, x, y)
     this.bookmarkUi = new BookmarkUi(browser)
     browser.onBookmarkCommand = (w, name, args) => this.bookmarkUi.handle(w, name, args)
   }
@@ -634,9 +635,11 @@ export class Menus {
           w.tabs.splice(w.tabs.indexOf(tab), 1)
           const firstUnpinned = w.tabs.findIndex((t) => !t.pinned)
           w.tabs.splice(firstUnpinned === -1 ? w.tabs.length : firstUnpinned, 0, tab)
+          w.normalizeGroups()
           w.onTabStateChanged(tab)
         },
       },
+      ...this.tabGroupItems(w, tab),
       {
         label: tab.muted ? 'Unmute site' : 'Mute site',
         click: () => {
@@ -666,6 +669,66 @@ export class Menus {
       },
     ]
     w.popup.menu(template, x, y)
+  }
+
+  private tabGroupItems(w: BrowserWindowController, tab: Tab): MenuItemConstructorOptions[] {
+    const others = [...w.groups.values()].filter((g) => g.id !== tab.groupId)
+    const items: MenuItemConstructorOptions[] = [{ type: 'separator' }]
+    items.push({
+      label: 'Add to new group',
+      click: () => w.startRenamingGroup(w.createGroup([tab]).id),
+    })
+    if (others.length) {
+      items.push({
+        label: 'Add to group',
+        submenu: others.map((g) => ({ label: groupLabel(w, g.id), click: () => w.addToGroup(tab, g.id) })),
+      })
+    }
+    if (tab.groupId !== null) items.push({ label: 'Remove from group', click: () => w.removeFromGroup(tab) })
+    return items
+  }
+
+  showGroupMenu(w: BrowserWindowController, groupId: number, x: number, y: number): void {
+    const group = w.groups.get(groupId)
+    if (!group) return
+    const template: MenuItemConstructorOptions[] = [
+      { label: 'Rename group', click: () => w.startRenamingGroup(groupId) },
+      {
+        label: 'Color',
+        submenu: GROUP_COLORS.map((color) => ({
+          label: color[0].toUpperCase() + color.slice(1),
+          type: 'radio' as const,
+          checked: group.color === color,
+          click: () => w.updateGroup(groupId, { color }),
+        })),
+      },
+      { label: group.collapsed ? 'Expand' : 'Collapse', click: () => w.updateGroup(groupId, { collapsed: !group.collapsed }) },
+      { type: 'separator' },
+      {
+        label: 'New tab in group',
+        click: () => {
+          const last = w.tabs.findLast((t) => t.groupId === groupId)
+          const tab = w.createTab({ index: last ? w.tabs.indexOf(last) + 1 : undefined })
+          if (tab.groupId !== groupId) w.addToGroup(tab, groupId)
+        },
+      },
+      { label: 'Move group to new window', click: () => this.moveGroupToNewWindow(w, groupId) },
+      { type: 'separator' },
+      { label: 'Ungroup', click: () => w.ungroup(groupId) },
+      { label: 'Close group', click: () => w.closeGroup(groupId) },
+    ]
+    w.popup.menu(template, x, y)
+  }
+
+  private moveGroupToNewWindow(w: BrowserWindowController, groupId: number): void {
+    const group = w.groups.get(groupId)
+    const tabs = w.tabs.filter((t) => t.groupId === groupId && t.url)
+    if (!group || !tabs.length) return
+    const target = this.browser.createWindow({ url: tabs[0].url })
+    for (const t of tabs.slice(1)) target.createTab({ url: t.url, background: true })
+    const moved = target.createGroup([...target.tabs], group.title)
+    target.updateGroup(moved.id, { color: group.color })
+    w.closeGroup(groupId)
   }
 
   private installedExtensionItems(): MenuItemConstructorOptions[] {
@@ -734,4 +797,13 @@ export class Menus {
 function zoom(tab: Tab, delta: number): void {
   const wc = tab.webContents
   if (wc) wc.setZoomLevel(Math.max(-8, Math.min(9, wc.getZoomLevel() + delta)))
+}
+
+/** A group's name for menus: its title, or its tabs' titles when it has none. */
+function groupLabel(w: BrowserWindowController, groupId: number): string {
+  const group = w.groups.get(groupId)
+  if (group?.title) return group.title
+  const titles = w.tabs.filter((t) => t.groupId === groupId).map((t) => t.title || 'New Tab')
+  const text = titles.slice(0, 2).join(', ') + (titles.length > 2 ? ` and ${titles.length - 2} more` : '')
+  return text.length > 50 ? `${text.slice(0, 49)}…` : text
 }
