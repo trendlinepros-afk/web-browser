@@ -52,7 +52,7 @@ Your tabs come back after the restart. The browser also checks quietly on startu
 (On macOS use Cmd instead of Ctrl.)
 
 ### LastPass and other extensions
-Menu → **Extensions → Install LastPass** (or **Get extensions** for the whole Chrome Web Store), then click
+⚙ → **Settings → Extensions → Install** (LastPass) or **Browse** (the whole Chrome Web Store), then click
 **Add to Chrome**. Extension buttons show up in the toolbar. Extensions update automatically.
 
 ### Bookmarks
@@ -61,7 +61,7 @@ Menu → **Extensions → Install LastPass** (or **Get extensions** for the whol
 - **Bookmarks bar:** shown under the address bar (toggle with Ctrl+Shift+B). Click to open, Ctrl+click or
   middle-click for a new tab, and click a folder for its contents. Drag items to reorder them, or onto a folder to
   move them in. Right-click for edit, delete, new folder and "open all". Items that don't fit go under ».
-- **Import from Firefox:** Menu → Bookmarks → **Import bookmarks from Firefox…** (or the link on an empty bar).
+- **Import from Firefox:** ⚙ → **Settings → Bookmarks → Import** (or the link on an empty bar).
   It reads your Firefox profile directly, icons included. Firefox can stay open. Your Firefox toolbar lands on the bar and
   everything else goes under *Other bookmarks › Imported from Firefox*. Importing again skips pages you already have.
 - **Import/export HTML:** works with exports from Firefox, Chrome, Edge and Safari, and is a good way to back up.
@@ -70,23 +70,23 @@ Menu → **Extensions → Install LastPass** (or **Get extensions** for the whol
 The shield button next to the address bar shows how many ads and trackers were blocked on the current page.
 Click it to turn blocking off for a site that misbehaves, turn cookie-banner hiding on or off, or refresh the
 filter lists (this also happens automatically every day). The browser sends the Global Privacy Control signal
-(a legal "do not sell or share my data" request in some places), which you can turn off in the same menu.
+(a legal "do not sell or share my data" request in some places), which you can turn off in ⚙ → Settings → Privacy & blocking.
 
 ### Saving memory
 Tabs you haven't looked at for 15 minutes go to sleep: they show dimmed and use no memory until you click them.
-Change the timeout in Menu → **Settings → Sleep inactive tabs after**. If your computer runs low on memory, the
+Change the timeout in ⚙ → **Settings → Speed & memory**. If your computer runs low on memory, the
 least recently used tabs sleep first. Tabs playing audio, using your camera or mic, or pinned stay awake.
 
 ### Letting Claude drive the browser (MCP)
-1. Menu → **Claude (MCP) → Enable MCP server**.
-2. Click **Copy connect command** and run it in a terminal. It looks like:
+1. ⚙ → **Settings → Claude → Let Claude control Zirtola**.
+2. Click **Copy** next to the connect command and run it in a terminal. It looks like:
    ```
    claude mcp add --transport http browser http://127.0.0.1:47823/mcp --header "Authorization: Bearer <token>"
    ```
 3. Ask Claude things like *"open my bank's statements page and download last month's PDF"*.
 
 The server listens only on your own computer and needs the secret token. Claude can't see private windows, and
-it can't run arbitrary JavaScript unless you turn that on in the same menu. Tabs Claude is driving show an orange dot.
+it can't run arbitrary JavaScript unless you turn that on in the same settings section. Tabs Claude is driving show a glowing dot.
 
 **Claude Desktop** (needs Node.js installed): add this to `claude_desktop_config.json`:
 ```json
