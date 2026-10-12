@@ -72,6 +72,11 @@ Click it to turn blocking off for a site that misbehaves, turn cookie-banner hid
 filter lists (this also happens automatically every day). The browser sends the Global Privacy Control signal
 (a legal "do not sell or share my data" request in some places), which you can turn off in ⚙ → Settings → Privacy & blocking.
 
+### Clearing your cache and cookies
+⚙ → **Settings → Clear browsing data** (or press Ctrl+Shift+Delete): **Clear cache** keeps you signed in;
+**Clear** removes cookies and site data for every site. To reset just one site, click the shield next to the
+address bar → **Clear cookies & data for this site**. Extensions such as LastPass keep their data either way.
+
 ### Saving memory
 Tabs you haven't looked at for 15 minutes go to sleep: they show dimmed and use no memory until you click them.
 Change the timeout in ⚙ → **Settings → Speed & memory**. If your computer runs low on memory, the

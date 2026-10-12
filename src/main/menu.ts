@@ -82,6 +82,7 @@ export class Menus {
           { label: 'Bookmark This Page', accelerator: 'CmdOrCtrl+D', click: this.withWindow((w) => this.bookmarkUi.bookmarkActiveTab(w)) },
           { label: 'Show Bookmarks Bar', accelerator: 'CmdOrCtrl+Shift+B', click: () => this.bookmarkUi.toggleBar() },
           { label: 'Settings', accelerator: 'CmdOrCtrl+,', click: this.withWindow((w) => this.openSettings(w)) },
+          { label: 'Clear Browsing Data', accelerator: 'CmdOrCtrl+Shift+Delete', click: this.withWindow((w) => this.openSettings(w, 'clear')) },
           { type: 'separator' },
           { label: 'Open Location', accelerator: 'CmdOrCtrl+L', click: this.withWindow((w) => w.focusAddressBar()) },
           { label: 'Open Location', accelerator: 'Alt+D', visible: false, click: this.withWindow((w) => w.focusAddressBar()) },
@@ -204,12 +205,63 @@ export class Menus {
 
   // ---- Settings panel ---------------------------------------------------------
 
-  openSettings(w: BrowserWindowController): void {
+  private lastCleared: { cache?: string; site?: string } = {}
+
+  openSettings(w: BrowserWindowController, section?: string, keepStatus = false): void {
     w.popup.onSetting = (key, value) => {
       void this.applySetting(key, value).then(() => w.popup.updateSettings(this.settingsModel()))
     }
     w.popup.onAction = (name) => this.runAction(w, name)
-    w.popup.settings(this.settingsModel())
+    if (!keepStatus) this.lastCleared = {}
+    w.popup.settings({ ...this.settingsModel(), focus: section })
+  }
+
+  /** Clears the HTTP cache and compiled-code cache. Cookies and logins are untouched. */
+  private async clearCache(w: BrowserWindowController): Promise<void> {
+    await w.session.clearCache()
+    await w.session.clearCodeCaches({}).catch(() => {})
+    this.lastCleared.cache = `Cache cleared at ${new Date().toLocaleTimeString()}.`
+  }
+
+  /**
+   * Clears cookies and site storage for every website. Service workers are left alone because
+   * extensions (e.g. LastPass) run on them; chrome.storage lives elsewhere and is untouched.
+   */
+  private async clearAllSiteData(w: BrowserWindowController): Promise<void> {
+    const choice = await w.popup.prompt({
+      kind: 'warning',
+      title: 'Clear cookies and site data?',
+      message: 'You will be signed out of websites. Bookmarks, settings and extensions are kept.',
+      buttons: ['Clear', 'Cancel'],
+      defaultId: 0,
+      cancelId: 1,
+    })
+    if (choice !== 0) return
+    await w.session.clearStorageData({ storages: ['cookies', 'localstorage', 'indexdb', 'cachestorage', 'filesystem', 'shadercache'] })
+    await w.session.clearCache()
+    // The confirmation replaced the settings panel; reopen it showing the result.
+    this.lastCleared.site = `Cookies and site data cleared at ${new Date().toLocaleTimeString()}.`
+    this.openSettings(w, 'clear', true)
+  }
+
+  /** Clears cookies and storage for the current site (including its parent domain's cookies). */
+  async clearSiteData(w: BrowserWindowController, url: string): Promise<void> {
+    let origin: URL
+    try {
+      origin = new URL(url)
+    } catch {
+      return
+    }
+    const site = AdBlocker.siteOf(url) ?? origin.hostname
+    const origins = new Set([origin.origin, `https://${site}`, `http://${site}`, `https://www.${site}`])
+    for (const o of origins) await w.session.clearStorageData({ origin: o }).catch(() => {})
+    // Cookies set on the parent domain (e.g. .google.com) by any subdomain.
+    const cookies = await w.session.cookies.get({ domain: site })
+    for (const c of cookies) {
+      const host = (c.domain ?? '').replace(/^\./, '')
+      await w.session.cookies.remove(`${c.secure ? 'https' : 'http'}://${host}${c.path ?? '/'}`, c.name).catch(() => {})
+    }
+    w.activeTab?.wake().reloadIgnoringCache()
   }
 
   private settingsModel(): SettingsModel {
@@ -281,6 +333,20 @@ export class Menus {
               action: 'updateFilters',
               label: 'Update',
               description: `Filter lists ${updated ? `updated ${new Date(updated).toLocaleString()}` : 'not downloaded yet'}. They also update daily.`,
+            },
+          ],
+        },
+        {
+          id: 'clear',
+          title: 'Clear browsing data',
+          controls: [
+            { kind: 'button', action: 'clearCache', label: 'Clear cache', description: this.lastCleared.cache ?? 'Remove saved copies of pages and images. Sites load fresh; you stay signed in.' },
+            {
+              kind: 'button',
+              action: 'clearSiteData',
+              label: 'Clear',
+              style: 'danger',
+              description: this.lastCleared.site ?? 'Cookies and site data for every site. Signs you out of websites; extensions keep their data.',
             },
           ],
         },
@@ -399,6 +465,12 @@ export class Menus {
   private runAction(w: BrowserWindowController, name: string): void {
     const refresh = () => w.popup.updateSettings(this.settingsModel())
     switch (name) {
+      case 'clearCache':
+        void this.clearCache(w).then(refresh)
+        return
+      case 'clearSiteData':
+        void this.clearAllSiteData(w)
+        return
       case 'sleepAll':
         for (const t of this.browser.allTabs()) if (t.canDiscard({ sleepPinned: true })) t.discard()
         return
@@ -497,6 +569,11 @@ export class Menus {
         click: (item) => updateSettings((x) => (x.privacy.globalPrivacyControl = item.checked)),
       },
       { type: 'separator' },
+      {
+        label: site ? `Clear cookies & data for ${site}` : 'Clear data for this site',
+        enabled: !!site,
+        click: () => void this.clearSiteData(w, tab.url),
+      },
       {
         label: updated ? `Update filter lists (last: ${new Date(updated).toLocaleDateString()})` : 'Update filter lists',
         click: () =>

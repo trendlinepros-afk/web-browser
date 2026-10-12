@@ -146,4 +146,6 @@ export interface SettingsSection {
 export interface SettingsModel {
   version: string
   sections: SettingsSection[]
+  /** Section to scroll to when opening. */
+  focus?: string
 }

@@ -358,6 +358,7 @@ api.onShowSettings((model) => {
   settingsEl.hidden = false
   document.body.classList.add('settings-open')
   body.scrollTop = 0
+  if (model.focus) document.getElementById(`s-${model.focus}`)?.scrollIntoView({ block: 'start', behavior: 'instant' })
   ;(settingsEl.querySelector('button, select') as HTMLElement | null)?.focus()
 })
 api.onUpdateSettings((model) => renderSettings(model, true))
