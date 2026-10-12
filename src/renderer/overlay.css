@@ -436,6 +436,27 @@ button.icon svg {
   outline-offset: -1px;
 }
 
+/* Text field */
+.text-input {
+  flex: 0 1 240px;
+  min-width: 0;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: 9px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-elev);
+  color: var(--fg);
+  font: inherit;
+  user-select: text;
+}
+.text-input::placeholder {
+  color: var(--muted);
+}
+.text-input:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+
 /* Buttons */
 .btn {
   flex: none;

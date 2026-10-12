@@ -15,6 +15,7 @@ const ICONS = {
   back: svg('<path d="M14.5 5.5 8 12l6.5 6.5"/>'),
   forward: svg('<path d="M9.5 5.5 16 12l-6.5 6.5"/>'),
   reload: svg('<path d="M19.5 12a7.5 7.5 0 1 1-2.2-5.3L19.5 9"/><path d="M19.5 4.5V9H15"/>'),
+  home: svg('<path d="M4.5 11 12 4.5l7.5 6.5"/><path d="M6.5 9.5v9h4v-5h3v5h4v-9"/>'),
   stop: svg('<path d="M7 7l10 10M17 7 7 17"/>'),
   plus: svg('<path d="M12 5.5v13M5.5 12h13"/>'),
   menu: svg('<path d="M4 7.5h9M17 7.5h3M4 16.5h3M11 16.5h9"/><circle cx="15" cy="7.5" r="2"/><circle cx="9" cy="16.5" r="2"/>'),
@@ -41,6 +42,7 @@ const addressForm = $<HTMLFormElement>('address-form')
 const backBtn = $<HTMLButtonElement>('back')
 const forwardBtn = $<HTMLButtonElement>('forward')
 const reloadBtn = $<HTMLButtonElement>('reload')
+const homeBtn = $<HTMLButtonElement>('home')
 const menuBtn = $<HTMLButtonElement>('menu')
 const newTabBtn = $<HTMLButtonElement>('new-tab')
 const mcpBadge = $<HTMLSpanElement>('mcp-badge')
@@ -60,6 +62,7 @@ const addressDisplay = $<HTMLDivElement>('address-display')
 backBtn.innerHTML = ICONS.back
 forwardBtn.innerHTML = ICONS.forward
 reloadBtn.innerHTML = ICONS.reload
+homeBtn.innerHTML = ICONS.home
 menuBtn.innerHTML = ICONS.menu
 newTabBtn.innerHTML = ICONS.plus
 
@@ -152,6 +155,7 @@ function render(): void {
 
   const tab = active()
   backBtn.disabled = !tab?.canGoBack
+  homeBtn.hidden = !state.showHomeButton
   forwardBtn.disabled = !tab?.canGoForward
   reloadBtn.innerHTML = tab?.loading ? ICONS.stop : ICONS.reload
   reloadBtn.title = tab?.loading ? 'Stop loading' : 'Reload (Ctrl+R)'
@@ -268,6 +272,7 @@ reloadBtn.onclick = () => {
   if (tab.loading) api.stop(tab.id)
   else api.reload(tab.id)
 }
+homeBtn.onclick = () => state?.activeTabId && api.goHome(state.activeTabId)
 shieldBtn.onclick = () => {
   const r = shieldBtn.getBoundingClientRect()
   api.showShieldMenu(r.left, r.bottom)

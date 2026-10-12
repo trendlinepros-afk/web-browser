@@ -8,6 +8,7 @@ import { accentColor, frameOptions, integratedTitleBar, titleBarOverlay, uiPlatf
 import { Tab, type SavedTab } from './tab'
 import type { Browser } from './browser'
 import { PopupHost } from './popup'
+import { homepageURL } from './url'
 
 /** Height of the browser UI (tab strip + toolbar) in DIPs. Must match --strip-h + --toolbar-h in styles.css. */
 export const UI_HEIGHT = 86
@@ -288,6 +289,15 @@ export class BrowserWindowController {
     if (this.activeTab && !this.activeTab.url) this.focusAddressBar()
   }
 
+  /** The home button: the homepage from Settings, or a blank page ready for typing. */
+  goHome(tab: Tab): void {
+    const home = homepageURL()
+    tab.loadURL(home ?? 'about:blank')
+    if (tab !== this.activeTab) return
+    if (home) tab.webContents?.focus()
+    else this.focusAddressBar()
+  }
+
   focusAddressBar(): void {
     if (this.win.isDestroyed()) return
     this.win.webContents.focus()
@@ -340,6 +350,7 @@ export class BrowserWindowController {
       tabs: this.tabs.map((t) => t.info()),
       mcpEnabled: this.browser.mcpEnabled(),
       accent: accentColor(),
+      showHomeButton: getSettings().showHomeButton,
     }
   }
 

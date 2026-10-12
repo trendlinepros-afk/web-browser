@@ -249,6 +249,8 @@ export class Browser {
           tab.webContents?.focus()
           return
         }
+        case 'goHome':
+          return tab && w.goHome(tab)
         case 'goBack':
           return tab?.wake().navigationHistory.goBack()
         case 'goForward':

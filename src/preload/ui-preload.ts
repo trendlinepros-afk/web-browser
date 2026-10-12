@@ -14,6 +14,7 @@ const api: UiApi = {
   activateTab: (id) => send('activateTab', id),
   navigate: (id, input) => send('navigate', id, input),
   goBack: (id) => send('goBack', id),
+  goHome: (id) => send('goHome', id),
   goForward: (id) => send('goForward', id),
   reload: (id) => send('reload', id),
   stop: (id) => send('stop', id),

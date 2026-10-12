@@ -46,6 +46,7 @@ Your tabs come back after the restart. The browser also checks quietly on startu
 | Address bar | Ctrl+L, Alt+D, F6 |
 | Next / previous tab, jump to tab | Ctrl+Tab / Ctrl+Shift+Tab, Ctrl+1…9 |
 | Back / forward / reload | Alt+← / Alt+→ / Ctrl+R (hard reload: Ctrl+Shift+R) |
+| Home | Alt+Home (set your homepage in ⚙ → Settings → Startup & home) |
 | Zoom | Ctrl+= / Ctrl+- / Ctrl+0 |
 | Developer tools | F12 |
 

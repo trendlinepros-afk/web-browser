@@ -49,6 +49,7 @@ export interface WindowState {
   mcpEnabled: boolean
   /** System accent color (#rrggbb) on Windows/macOS, else null. */
   accent: string | null
+  showHomeButton: boolean
 }
 
 export type UpdateStatus =
@@ -68,6 +69,7 @@ export interface UiApi {
   activateTab(tabId: number): void
   navigate(tabId: number, input: string): void
   goBack(tabId: number): void
+  goHome(tabId: number): void
   goForward(tabId: number): void
   reload(tabId: number): void
   stop(tabId: number): void
@@ -136,6 +138,7 @@ export type SettingsControl =
   | { kind: 'select'; key: string; label: string; description?: string; value: string; options: { value: string; label: string }[] }
   | { kind: 'button'; action: string; label: string; description?: string; style?: 'primary' | 'danger' }
   | { kind: 'info'; label: string; value: string }
+  | { kind: 'text'; key: string; label: string; description?: string; value: string; placeholder?: string }
 
 export interface SettingsSection {
   id: string

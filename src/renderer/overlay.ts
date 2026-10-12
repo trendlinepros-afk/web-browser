@@ -314,6 +314,17 @@ function control(c: SettingsControl): HTMLElement {
     btn.onclick = () => api.action(c.action)
     text.replaceChildren(Object.assign(document.createElement('div'), { className: 'label', textContent: c.description ?? '' }))
     row.append(btn)
+  } else if (c.kind === 'text') {
+    const input = Object.assign(document.createElement('input'), { className: 'text-input', type: 'text', value: c.value, placeholder: c.placeholder ?? '', spellcheck: false })
+    input.setAttribute('aria-label', c.label)
+    const commit = () => {
+      if (input.value.trim() !== c.value) api.setSetting(c.key, input.value)
+    }
+    input.onchange = commit
+    input.onkeydown = (e) => {
+      if (e.key === 'Enter') input.blur()
+    }
+    row.append(input)
   } else {
     row.append(Object.assign(document.createElement('div'), { className: 'value', textContent: c.value }))
   }

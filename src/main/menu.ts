@@ -12,6 +12,7 @@ import { AdBlocker } from './blocker'
 import { BookmarkUi } from './bookmark-ui'
 import { CHROME_WEB_STORE_URL, LASTPASS_URL, updateAllExtensions } from './extensions'
 import { diagnosticsText } from './extension-apis'
+import { toNavigableURL } from './url'
 
 const REPO_URL = 'https://github.com/trendlinepros-afk/web-browser'
 
@@ -135,6 +136,7 @@ export class Menus {
         submenu: [
           { label: 'Back', accelerator: isMac ? 'Cmd+[' : 'Alt+Left', click: this.withTab((t) => t.wake().navigationHistory.goBack()) },
           { label: 'Forward', accelerator: isMac ? 'Cmd+]' : 'Alt+Right', click: this.withTab((t) => t.wake().navigationHistory.goForward()) },
+          { label: 'Home', accelerator: isMac ? 'Cmd+Shift+H' : 'Alt+Home', click: this.withTab((t, w) => w.goHome(t)) },
         ],
       },
       {
@@ -353,9 +355,19 @@ export class Menus {
         },
         {
           id: 'startup',
-          title: 'Startup',
+          title: 'Startup & home',
           controls: [
             { kind: 'toggle', key: 'restoreSession', label: 'Reopen my tabs when Zirtola starts', value: s.restoreSession },
+            { kind: 'toggle', key: 'showHomeButton', label: 'Show home button', description: 'Next to reload. Alt+Home also goes home.', value: s.showHomeButton },
+            {
+              kind: 'text',
+              key: 'homepage',
+              label: 'Homepage',
+              description: 'Empty opens a blank page.',
+              value: s.homepage === 'about:blank' ? '' : s.homepage,
+              placeholder: 'Blank page',
+            },
+            { kind: 'button', action: 'homepageCurrent', label: 'Use current page', description: 'Make the page you\'re on your homepage.' },
             { kind: 'button', action: 'makeDefault', label: 'Make default', description: 'Open links from other apps in Zirtola.' },
           ],
         },
@@ -445,6 +457,15 @@ export class Menus {
       case 'privacy.globalPrivacyControl':
         updateSettings((s) => (s.privacy.globalPrivacyControl = bool))
         break
+      case 'showHomeButton':
+        updateSettings((s) => (s.showHomeButton = bool))
+        break
+      case 'homepage': {
+        const text = typeof value === 'string' ? value.trim() : ''
+        const url = text ? toNavigableURL(text, getSettings().searchEngine) : ''
+        if (url !== null) updateSettings((s) => (s.homepage = url))
+        break
+      }
       case 'restoreSession':
         updateSettings((s) => (s.restoreSession = bool))
         break
@@ -499,6 +520,14 @@ export class Menus {
       case 'installLastPass':
         w.popup.close()
         return this.openInNormalWindow(w, LASTPASS_URL)
+      case 'homepageCurrent': {
+        const url = w.activeTab?.url
+        if (url && /^https?:/.test(url)) {
+          updateSettings((s) => (s.homepage = url))
+          refresh()
+        }
+        return
+      }
       case 'copyExtensionDiagnostics':
         clipboard.writeText(diagnosticsText(this.browser.profile))
         return

@@ -1,3 +1,5 @@
+import { getSettings } from './settings'
+
 const SCHEME = /^[a-z][a-z0-9+.-]*:/i
 const ALLOWED_SCHEMES = new Set(['http:', 'https:', 'file:', 'about:', 'data:', 'chrome-extension:', 'view-source:'])
 
@@ -40,4 +42,11 @@ function search(query: string, template: string): string {
 /** What the address bar should display for a URL. */
 export function displayURL(url: string): string {
   return url === 'about:blank' ? '' : url
+}
+
+/** The home button's destination, or null for a blank new-tab page. */
+export function homepageURL(): string | null {
+  const home = getSettings().homepage.trim()
+  if (!home || home === 'about:blank') return null
+  return toNavigableURL(home, getSettings().searchEngine)
 }

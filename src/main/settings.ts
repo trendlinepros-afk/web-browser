@@ -4,7 +4,9 @@ import path from 'node:path'
 
 export interface Settings {
   searchEngine: string
+  /** Where the home button goes. Empty (or about:blank) means a blank new-tab page. */
   homepage: string
+  showHomeButton: boolean
   /** Hidden tabs are put to sleep after this many minutes. 0 disables time-based sleeping. */
   discardAfterMinutes: number
   /** Sleep least-recently-used tabs when free system memory drops below this (MB). 0 disables. */
@@ -39,7 +41,8 @@ export interface Settings {
 
 const DEFAULTS: Settings = {
   searchEngine: 'https://www.google.com/search?q=%s',
-  homepage: 'about:blank',
+  homepage: '',
+  showHomeButton: true,
   discardAfterMinutes: 15,
   memoryPressureFreeMB: 800,
   sleepPinnedTabs: false,
