@@ -1,7 +1,9 @@
 import { session } from 'electron'
 import { ElectronChromeExtensions } from 'electron-chrome-extensions'
 import { installChromeWebStore, updateExtensions } from 'electron-chrome-web-store'
+import path from 'node:path'
 import type { Browser } from './browser'
+import { ExtensionApis } from './extension-apis'
 
 export const CHROME_WEB_STORE_URL = 'https://chromewebstore.google.com/'
 export const LASTPASS_URL = 'https://chromewebstore.google.com/detail/lastpass-free-password-ma/hdokiejnpimakedhajhdlcegeplioahd'
@@ -16,6 +18,15 @@ export async function setupExtensions(browser: Browser): Promise<ElectronChromeE
 
   // The extension toolbar in our UI (default session) loads icons via crx://.
   ElectronChromeExtensions.handleCRXProtocol(session.defaultSession)
+
+  // Our chrome.alarms / chrome.identity must be installed before electron-chrome-extensions'
+  // service-worker preload runs, because it freezes `chrome`.
+  ses.registerPreloadScript({
+    id: 'zirtola-ext-apis',
+    type: 'service-worker',
+    filePath: path.join(__dirname, '..', 'preload', 'extension-sw-preload.js'),
+  })
+  new ExtensionApis(ses)
 
   const extensions = new ElectronChromeExtensions({
     license: 'GPL-3.0',

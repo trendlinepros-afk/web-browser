@@ -11,6 +11,7 @@ import { makeDefaultBrowser } from './default-browser'
 import { AdBlocker } from './blocker'
 import { BookmarkUi } from './bookmark-ui'
 import { CHROME_WEB_STORE_URL, LASTPASS_URL, updateAllExtensions } from './extensions'
+import { diagnosticsText } from './extension-apis'
 
 const REPO_URL = 'https://github.com/trendlinepros-afk/web-browser'
 
@@ -375,6 +376,7 @@ export class Menus {
             ...(extensions.length ? [] : [{ kind: 'info' as const, label: 'No extensions installed', value: '' }]),
             { kind: 'button', action: 'getExtensions', label: 'Browse', description: 'Install extensions from the Chrome Web Store.' },
             { kind: 'button', action: 'installLastPass', label: 'Install', description: 'LastPass password manager' },
+            { kind: 'button', action: 'copyExtensionDiagnostics', label: 'Copy', description: 'Extension diagnostics, for reporting a problem with an extension.' },
           ],
         },
         {
@@ -497,6 +499,9 @@ export class Menus {
       case 'installLastPass':
         w.popup.close()
         return this.openInNormalWindow(w, LASTPASS_URL)
+      case 'copyExtensionDiagnostics':
+        clipboard.writeText(diagnosticsText(this.browser.profile))
+        return
       case 'copyMcpCommand':
         clipboard.writeText(BrowserMcpServer.connectCommand())
         return

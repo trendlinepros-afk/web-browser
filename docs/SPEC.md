@@ -33,6 +33,12 @@ Electron ships current Chromium, so websites behave the same as in Chrome. Exten
 a **LastPass validation gate** (§9). If something breaks, we fill the specific gap in our main process.
 That is normal, expected work and doesn't call for a new engine.
 
+Gaps filled so far (`src/main/extension-apis.ts` + `src/preload/extension-sw-preload.ts`):
+- **`chrome.alarms`**: Electron accepts alarms but never fires them. Zirtola schedules them in the main
+  process (persisted across restarts) and wakes the extension's sleeping service worker to deliver them.
+- **`chrome.identity`**: `launchWebAuthFlow` / `getRedirectURL` for extension sign-in flows.
+- **Diagnostics**: Settings → Extensions → Copy collects extension worker/page logs for bug reports.
+
 **Licensing:** `electron-chrome-extensions` is dual-licensed as GPL-3.0 or a paid patron license. Because this
 repo is public, we use **GPL-3.0** for the whole app. The license is free, but anyone who forks the code must keep it open source.
 
