@@ -26,6 +26,9 @@
   --ok: #138a6c;
   --shadow: 0 12px 32px rgba(23, 28, 70, 0.16), 0 2px 6px rgba(23, 28, 70, 0.08);
   --page-bg: #ffffff;
+  /* Settings sheet: tinted so its white cards stand out. */
+  --sheet-bg: #f2f4fb;
+  --sheet-side: #e7eaf6;
   color-scheme: light;
 }
 
@@ -48,6 +51,8 @@
     --ok: #4fd1ae;
     --shadow: 0 16px 40px rgba(0, 0, 0, 0.5), 0 2px 8px rgba(0, 0, 0, 0.35);
     --page-bg: #12162b;
+    --sheet-bg: #0f1326;
+    --sheet-side: #0b0e1d;
     color-scheme: dark;
   }
 }
@@ -69,5 +74,7 @@ body.incognito {
   --faint: #6f6290;
   --accent: #c48bff;
   --accent-fg: #0e0918;
+  --sheet-bg: #130d22;
+  --sheet-side: #0f0a1b;
   color-scheme: dark;
 }

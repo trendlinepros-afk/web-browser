@@ -165,6 +165,8 @@ export type SettingsControl =
 export interface SettingsSection {
   id: string
   title: string
+  /** One line under the section's heading. */
+  subtitle?: string
   controls: SettingsControl[]
 }
 

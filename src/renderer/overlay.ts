@@ -331,46 +331,73 @@ function control(c: SettingsControl): HTMLElement {
   return row
 }
 
-function renderSettings(model: SettingsModel, keepScroll: boolean): void {
-  const scroll = body.scrollTop
-  nav.replaceChildren()
-  body.replaceChildren()
-  for (const section of model.sections) {
-    const el = document.createElement('section')
-    el.id = `s-${section.id}`
-    el.append(Object.assign(document.createElement('h2'), { textContent: section.title }))
-    const card = Object.assign(document.createElement('div'), { className: 'card' })
-    for (const c of section.controls) card.append(control(c))
-    el.append(card)
-    body.append(el)
-    const chip = Object.assign(document.createElement('button'), { type: 'button', textContent: section.title })
-    chip.onclick = () => el.scrollIntoView({ block: 'start' })
-    nav.append(chip)
-  }
-  if (keepScroll) body.scrollTop = scroll
-  highlightNav()
+const SECTION_ICONS: Record<string, string> = {
+  appearance: '<path d="M12 3.5a8.5 8.5 0 1 0 0 17c1.2 0 1.8-.8 1.8-1.7 0-1.3-1.1-1.6-1.1-2.8 0-1 .8-1.7 1.8-1.7h2.1a3.9 3.9 0 0 0 3.9-3.9c0-3.9-3.8-6.9-8.5-6.9"/><circle cx="7.8" cy="11" r="1"/><circle cx="10.5" cy="7.3" r="1"/><circle cx="15" cy="7.8" r="1"/>',
+  search: '<circle cx="10.5" cy="10.5" r="6"/><path d="m15 15 5 5"/>',
+  speed: '<path d="M4.5 16a7.5 7.5 0 1 1 15 0"/><path d="m12 16 3.5-5"/><circle cx="12" cy="16" r="1.2"/>',
+  privacy: '<path d="M12 3.5 18.5 6v5.3c0 4.2-2.8 7.8-6.5 9.2-3.7-1.4-6.5-5-6.5-9.2V6z"/><path d="m9.2 12 2 2 3.8-3.9"/>',
+  clear: '<path d="M5 7h14M10 7V5h4v2M7 7l.8 12.5h8.4L17 7"/>',
+  startup: '<path d="M4.5 11 12 4.5l7.5 6.5"/><path d="M6.5 9.5v9h4v-5h3v5h4v-9"/>',
+  bookmarks: '<path d="M7 4.5h10v15l-5-3.5-5 3.5z"/>',
+  extensions: '<path d="M9.5 4.5h3v2a1.5 1.5 0 0 0 3 0v-2h3v5h-2a1.5 1.5 0 0 0 0 3h2v5h-5v-2a1.5 1.5 0 0 0-3 0v2h-5v-5h2a1.5 1.5 0 0 0 0-3h-2v-5z"/>',
+  claude: '<path d="M12 3.5v3M12 17.5v3M3.5 12h3M17.5 12h3M6 6l2.1 2.1M15.9 15.9 18 18M18 6l-2.1 2.1M8.1 15.9 6 18"/>',
+  updates: '<path d="M12 4.5v10M7.5 10l4.5 4.5 4.5-4.5"/><path d="M5 19.5h14"/>',
 }
 
-function highlightNav(): void {
-  const sections = [...body.querySelectorAll('section')]
-  const top = body.getBoundingClientRect().top
-  let current = 0
-  sections.forEach((s, i) => {
-    if (s.getBoundingClientRect().top - top < 80) current = i
-  })
-  ;[...nav.children].forEach((c, i) => c.classList.toggle('current', i === current))
+/** The section on screen; kept while the panel is open and across refreshes. */
+let currentSection = ''
+let lastModel: SettingsModel | null = null
+
+function renderSettings(model: SettingsModel, keepScroll: boolean): void {
+  lastModel = model
+  const scroll = body.scrollTop
+  if (!model.sections.some((s) => s.id === currentSection)) currentSection = model.sections[0]?.id ?? ''
+  nav.replaceChildren()
+  for (const section of model.sections) {
+    const item = Object.assign(document.createElement('button'), { type: 'button', className: 'nav-item' })
+    item.innerHTML = `<svg viewBox="0 0 24 24">${SECTION_ICONS[section.id] ?? ''}</svg>`
+    item.append(Object.assign(document.createElement('span'), { textContent: section.title }))
+    item.title = section.title
+    item.classList.toggle('current', section.id === currentSection)
+    if (section.id === currentSection) item.setAttribute('aria-current', 'page')
+    item.onclick = () => {
+      if (currentSection === section.id) return
+      currentSection = section.id
+      renderSettings(lastModel!, false)
+    }
+    nav.append(item)
+  }
+  const section = model.sections.find((s) => s.id === currentSection)
+  $('settings-title').textContent = section?.title ?? ''
+  $('settings-subtitle').textContent = section?.subtitle ?? ''
+  body.replaceChildren()
+  if (section) {
+    const card = Object.assign(document.createElement('div'), { className: 'card' })
+    for (const c of section.controls) card.append(control(c))
+    body.append(card)
+  }
+  body.scrollTop = keepScroll ? scroll : 0
 }
-body.addEventListener('scroll', highlightNav, { passive: true })
 
 api.onShowSettings((model) => {
   setIncognito((model as SettingsModel & { incognito?: boolean }).incognito)
   closeFrom(0)
+  if (model.focus) currentSection = model.focus
   renderSettings(model, false)
   settingsEl.hidden = false
   document.body.classList.add('settings-open')
-  body.scrollTop = 0
-  if (model.focus) document.getElementById(`s-${model.focus}`)?.scrollIntoView({ block: 'start', behavior: 'instant' })
-  ;(settingsEl.querySelector('button, select') as HTMLElement | null)?.focus()
+  ;(nav.querySelector('.current') as HTMLElement | null)?.focus()
 })
 api.onUpdateSettings((model) => renderSettings(model, true))
 $('settings-close').onclick = () => closeAll()
+
+// Up/down moves between settings sections.
+nav.addEventListener('keydown', (e) => {
+  if (e.key !== 'ArrowDown' && e.key !== 'ArrowUp') return
+  e.preventDefault()
+  const items = [...nav.querySelectorAll<HTMLButtonElement>('.nav-item')]
+  const i = items.findIndex((b) => b.classList.contains('current'))
+  const next = items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]
+  next.click()
+  nav.querySelectorAll<HTMLButtonElement>('.nav-item')[items.indexOf(next)]?.focus()
+})

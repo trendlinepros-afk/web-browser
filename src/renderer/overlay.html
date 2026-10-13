@@ -20,12 +20,20 @@
       <div class="prompt-buttons"></div>
     </div>
     <aside id="settings" hidden aria-label="Settings">
-      <header>
+      <div class="side">
         <div class="title"><span class="mark"></span>Settings</div>
-        <button id="settings-close" class="icon" aria-label="Close settings"></button>
-      </header>
-      <nav id="settings-nav"></nav>
-      <div id="settings-body"></div>
+        <nav id="settings-nav" aria-label="Settings sections"></nav>
+      </div>
+      <div class="main">
+        <header>
+          <div>
+            <h1 id="settings-title"></h1>
+            <p id="settings-subtitle"></p>
+          </div>
+          <button id="settings-close" class="icon" aria-label="Close settings"></button>
+        </header>
+        <div id="settings-body"></div>
+      </div>
     </aside>
     <script type="module" src="overlay.js"></script>
   </body>

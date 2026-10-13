@@ -236,7 +236,8 @@ Goal: nothing should feel like Chrome or Firefox. Same two-row layout (tabs abov
 - **Menus**: every menu (⚙, page right-click, tab, bookmarks, shield, extension items) is drawn by Zirtola in
   one shared transparent overlay (`popup.ts`, `renderer/overlay.*`), not by the OS. Keyboard navigable,
   submenus, checkmarks. The overlay shares the UI's renderer process, so menus cost ~no memory.
-- **Settings panel** (⚙ › Settings or Ctrl+,): a slide-in sheet with sections (Appearance, Search, Speed &
+- **Settings panel** (⚙ › Settings or Ctrl+,): a centered two-pane sheet, a sidebar of sections with icons and one
+  section shown at a time under its own heading (icon-only sidebar in narrow windows). Sections (Appearance, Search, Speed &
   memory, Privacy & blocking, Clear browsing data, Startup & home, Bookmarks, Extensions, Claude, Updates) replacing nested menus.
 - Wording: "Private window" instead of Chrome's "Incognito".
 

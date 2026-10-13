@@ -278,6 +278,7 @@ export class Menus {
         {
           id: 'appearance',
           title: 'Appearance',
+          subtitle: 'How Zirtola looks.',
           controls: [
             {
               kind: 'select',
@@ -297,6 +298,7 @@ export class Menus {
         {
           id: 'search',
           title: 'Search',
+          subtitle: "What happens when you type something that isn't an address.",
           controls: [
             {
               kind: 'select',
@@ -311,6 +313,7 @@ export class Menus {
         {
           id: 'speed',
           title: 'Speed & memory',
+          subtitle: "Keep Zirtola light by putting tabs you aren't using to sleep.",
           controls: [
             {
               kind: 'select',
@@ -328,6 +331,7 @@ export class Menus {
         {
           id: 'privacy',
           title: 'Privacy & blocking',
+          subtitle: 'Ads, trackers and what sites are told about you.',
           controls: [
             { kind: 'toggle', key: 'blocking.enabled', label: 'Block ads and trackers', description: 'Turn off for one site from the shield next to the address bar.', value: s.blocking.enabled },
             { kind: 'toggle', key: 'blocking.cookieBanners', label: 'Hide cookie banners', value: s.blocking.cookieBanners },
@@ -343,6 +347,7 @@ export class Menus {
         {
           id: 'clear',
           title: 'Clear browsing data',
+          subtitle: 'Remove saved pages, cookies and site data.',
           controls: [
             { kind: 'button', action: 'clearCache', label: 'Clear cache', description: this.lastCleared.cache ?? 'Remove saved copies of pages and images. Sites load fresh; you stay signed in.' },
             {
@@ -357,6 +362,7 @@ export class Menus {
         {
           id: 'startup',
           title: 'Startup & home',
+          subtitle: 'What opens when Zirtola starts and where the home button goes.',
           controls: [
             { kind: 'toggle', key: 'restoreSession', label: 'Reopen my tabs when Zirtola starts', value: s.restoreSession },
             { kind: 'toggle', key: 'showHomeButton', label: 'Show home button', description: 'Next to reload. Alt+Home also goes home.', value: s.showHomeButton },
@@ -375,6 +381,7 @@ export class Menus {
         {
           id: 'bookmarks',
           title: 'Bookmarks',
+          subtitle: 'Bring bookmarks in from other browsers, or back them up.',
           controls: [
             { kind: 'button', action: 'importFirefox', label: 'Import', description: 'Import bookmarks from Firefox (icons and folders included).', style: 'primary' },
             { kind: 'button', action: 'importHtml', label: 'Import file', description: 'Import a bookmarks HTML file from any browser.' },
@@ -384,6 +391,7 @@ export class Menus {
         {
           id: 'extensions',
           title: 'Extensions',
+          subtitle: 'Chrome extensions, such as LastPass.',
           controls: [
             ...extensions.map((e) => ({ kind: 'info' as const, label: e.name, value: e.version })),
             ...(extensions.length ? [] : [{ kind: 'info' as const, label: 'No extensions installed', value: '' }]),
@@ -395,6 +403,7 @@ export class Menus {
         {
           id: 'claude',
           title: 'Claude',
+          subtitle: 'Let Claude control Zirtola through MCP.',
           controls: [
             {
               kind: 'toggle',
@@ -414,6 +423,7 @@ export class Menus {
         {
           id: 'updates',
           title: 'Updates',
+          subtitle: 'Get the newest version of Zirtola.',
           controls: [
             { kind: 'info', label: 'Version', value: app.getVersion() },
             { kind: 'toggle', key: 'checkForUpdatesOnStartup', label: 'Check for updates automatically', value: s.checkForUpdatesOnStartup },
