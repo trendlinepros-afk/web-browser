@@ -71,6 +71,11 @@ const DEFAULTS: Settings = {
 let cached: Settings | null = null
 let writeTimer: NodeJS.Timeout | null = null
 
+/** Where settings live; the MCP bridge (mcp-bridge.ts) reads the port and token from here. */
+export function settingsFile(): string {
+  return file()
+}
+
 function file(): string {
   return path.join(app.getPath('userData'), 'settings.json')
 }

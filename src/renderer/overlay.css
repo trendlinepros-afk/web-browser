@@ -214,6 +214,7 @@ body.frame-integrated.platform-win32 .prompt {
   margin-top: 2px;
   color: var(--muted);
   line-height: 1.4;
+  white-space: pre-line;
 }
 .prompt-detail {
   margin-top: 8px;

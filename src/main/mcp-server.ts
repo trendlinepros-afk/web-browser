@@ -32,25 +32,6 @@ export class BrowserMcpServer {
     return getSettings().mcp.token
   }
 
-  /**
-   * claude_desktop_config.json for Claude Desktop, which only launches local (stdio) servers, so
-   * mcp-remote bridges to ours. The token goes through `env`: on Windows, npx can split an argument
-   * containing a space ("Authorization: Bearer …").
-   */
-  static desktopConfig(): string {
-    const { port } = getSettings().mcp
-    const config = {
-      mcpServers: {
-        zirtola: {
-          command: 'npx',
-          args: ['-y', 'mcp-remote', `http://127.0.0.1:${port}/mcp`, '--header', 'Authorization:${AUTH_HEADER}'],
-          env: { AUTH_HEADER: `Bearer ${BrowserMcpServer.ensureToken()}` },
-        },
-      },
-    }
-    return JSON.stringify(config, null, 2)
-  }
-
   static connectCommand(): string {
     const { port } = getSettings().mcp
     return `claude mcp add --transport http browser http://127.0.0.1:${port}/mcp --header "Authorization: Bearer ${BrowserMcpServer.ensureToken()}"`

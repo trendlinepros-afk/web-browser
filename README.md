@@ -93,35 +93,15 @@ Change the timeout in ⚙ → **Settings → Speed & memory**. If your computer 
 least recently used tabs sleep first. Tabs playing audio, using your camera or mic, or pinned stay awake.
 
 ### Letting Claude drive the browser (MCP)
-1. ⚙ → **Settings → Claude → Let Claude control Zirtola**.
-2. Click **Copy** next to the connect command and run it in a terminal. It looks like:
-   ```
-   claude mcp add --transport http browser http://127.0.0.1:47823/mcp --header "Authorization: Bearer <token>"
-   ```
-3. Ask Claude things like *"open my bank's statements page and download last month's PDF"*.
+1. ⚙ → **Settings → Claude → Connect**. That's it: Zirtola sets up Claude Desktop and Claude Code (whichever you
+   have) to use it. Nothing to copy, and no Node.js needed.
+2. Restart Claude: quit Claude Desktop from the system tray and open it again, or start a new `claude` session.
+3. Ask Claude things like *"Use Zirtola to open my bank's statements page and download last month's PDF"*.
 
-The server listens only on your own computer and needs the secret token. Claude can't see private windows, and
-it can't run arbitrary JavaScript unless you turn that on in the same settings section. Tabs Claude is driving show a glowing dot.
-
-**Claude Desktop** (needs Node.js installed): ⚙ → Settings → Claude → **Copy** next to "Claude Desktop", then in
-Claude Desktop open Settings → Developer → **Edit Config** and paste it into `claude_desktop_config.json`
-(merge it into `mcpServers` if you already have other servers). Fully quit Claude Desktop from the tray and reopen it.
-The copied config looks like this; the token is passed through `env` because on Windows an argument with a space
-in it can get split:
-```json
-{
-  "mcpServers": {
-    "zirtola": {
-      "command": "npx",
-      "args": ["-y", "mcp-remote", "http://127.0.0.1:47823/mcp", "--header", "Authorization:${AUTH_HEADER}"],
-      "env": { "AUTH_HEADER": "Bearer <token>" }
-    }
-  }
-}
-```
-If it doesn't show up, Claude Desktop's log is at `%APPDATA%\Claude\logs\mcp-server-zirtola.log`.
-
-Claude on the web (claude.ai) and cloud sessions can't reach it: the server only listens on your own computer.
+Keep Zirtola open while Claude uses it. Claude can only reach it from your own computer (not from claude.ai on the
+web or cloud sessions). It can't see private windows, and it can't run arbitrary JavaScript unless you turn that on
+in the same settings section. Tabs Claude is driving show a glowing dot. To stop it, turn off
+"Let Claude control Zirtola".
 
 ## Development
 

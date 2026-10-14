@@ -12,6 +12,7 @@ import { AdBlocker } from './blocker'
 import { BookmarkUi } from './bookmark-ui'
 import { CHROME_WEB_STORE_URL, LASTPASS_URL, updateAllExtensions } from './extensions'
 import { diagnosticsText } from './extension-apis'
+import { connectClaude, type ConnectResult } from './claude-connect'
 import { toNavigableURL } from './url'
 
 const REPO_URL = 'https://github.com/trendlinepros-afk/web-browser'
@@ -406,24 +407,23 @@ export class Menus {
           subtitle: 'Let Claude control Zirtola through MCP.',
           controls: [
             {
+              kind: 'button',
+              action: 'connectClaude',
+              label: 'Connect',
+              style: 'primary',
+              description: 'Set up Claude Desktop and Claude Code on this computer to use Zirtola. One click, nothing to copy.',
+            },
+            {
               kind: 'toggle',
               key: 'mcp.enabled',
               label: 'Let Claude control Zirtola',
-              description: this.mcp.running
-                ? `Running on 127.0.0.1:${s.mcp.port}. Only apps with your secret token can connect.`
-                : 'Starts a local MCP server that Claude Code or Claude Desktop can connect to.',
+              description: this.mcp.running ? 'On. Only apps on this computer that you connected can use it.' : 'Off. Claude can\'t see or use Zirtola.',
               value: s.mcp.enabled,
-            },
-            { kind: 'button', action: 'copyMcpCommand', label: 'Copy', description: 'Claude Code: copy the "claude mcp add" command (contains your secret token).' },
-            {
-              kind: 'button',
-              action: 'copyMcpDesktopConfig',
-              label: 'Copy',
-              description: 'Claude Desktop: copy the config for claude_desktop_config.json (contains your secret token; needs Node.js).',
             },
             { kind: 'toggle', key: 'mcp.allowEvaluate', label: 'Allow Claude to run JavaScript in pages', value: s.mcp.allowEvaluate },
             { kind: 'toggle', key: 'mcp.allowIncognito', label: 'Allow Claude in private windows', value: s.mcp.allowIncognito },
-            { kind: 'button', action: 'regenerateToken', label: 'Reset', description: 'Make a new secret token (disconnects existing connections).', style: 'danger' },
+            { kind: 'button', action: 'copyMcpCommand', label: 'Copy', description: 'Advanced: the "claude mcp add" command for connecting by hand (contains your secret token).' },
+            { kind: 'button', action: 'regenerateToken', label: 'Reset', description: 'Make a new secret token. Anything set up with Connect keeps working.', style: 'danger' },
           ],
         },
         {
@@ -548,9 +548,8 @@ export class Menus {
       case 'copyExtensionDiagnostics':
         clipboard.writeText(diagnosticsText(this.browser.profile))
         return
-      case 'copyMcpDesktopConfig':
-        clipboard.writeText(BrowserMcpServer.desktopConfig())
-        return
+      case 'connectClaude':
+        return void this.connectClaude(w)
       case 'copyMcpCommand':
         clipboard.writeText(BrowserMcpServer.connectCommand())
         return
@@ -789,19 +788,37 @@ export class Menus {
     target.win.focus()
   }
 
+  /** Settings → Claude → Connect: turn MCP on and register Zirtola with Claude Desktop and Claude Code. */
+  private async connectClaude(w: BrowserWindowController): Promise<void> {
+    if (!this.mcp.running) await this.setMcpEnabled(true)
+    w.popup.updateSettings(this.settingsModel())
+    const { desktop, code } = await connectClaude()
+    const line = (app: string, r: ConnectResult, next: string) =>
+      r === 'connected' ? `✓ ${app}: connected. ${next}` : r === 'not-installed' ? `– ${app}: not installed on this computer.` : `✗ ${app}: ${r.error}`
+    const ok = desktop === 'connected' || code === 'connected'
+    await w.popup.prompt({
+      kind: ok ? 'info' : 'warning',
+      title: ok ? 'Claude is connected to Zirtola' : "Couldn't find Claude on this computer",
+      message: [
+        line('Claude Desktop', desktop, 'Quit Claude from the system tray and open it again.'),
+        line('Claude Code', code, 'Start a new claude session.'),
+      ].join('\n'),
+      detail: ok
+        ? 'Then ask Claude something like "Use Zirtola to open my email". Keep Zirtola open while Claude uses it.'
+        : 'Install Claude Desktop (claude.ai/download) or Claude Code, then click Connect again.',
+      buttons: ['OK'],
+      defaultId: 0,
+      cancelId: 0,
+    })
+    w.popup.settings(this.settingsModel())
+  }
+
   async setMcpEnabled(enabled: boolean): Promise<void> {
     updateSettings((x) => (x.mcp.enabled = enabled))
     try {
       if (enabled) {
+        BrowserMcpServer.ensureToken()
         await this.mcp.start()
-        const choice = await dialog.showMessageBox({
-          type: 'info',
-          buttons: ['Copy connect command', 'Close'],
-          defaultId: 0,
-          message: `MCP server running at http://127.0.0.1:${getSettings().mcp.port}/mcp`,
-          detail: 'To connect Claude Code, copy the command and run it in a terminal. It includes your secret token.',
-        })
-        if (choice.response === 0) clipboard.writeText(BrowserMcpServer.connectCommand())
       } else {
         await this.mcp.stop()
       }
