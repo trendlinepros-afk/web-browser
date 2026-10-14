@@ -103,17 +103,25 @@ least recently used tabs sleep first. Tabs playing audio, using your camera or m
 The server listens only on your own computer and needs the secret token. Claude can't see private windows, and
 it can't run arbitrary JavaScript unless you turn that on in the same settings section. Tabs Claude is driving show a glowing dot.
 
-**Claude Desktop** (needs Node.js installed): add this to `claude_desktop_config.json`:
+**Claude Desktop** (needs Node.js installed): ⚙ → Settings → Claude → **Copy** next to "Claude Desktop", then in
+Claude Desktop open Settings → Developer → **Edit Config** and paste it into `claude_desktop_config.json`
+(merge it into `mcpServers` if you already have other servers). Fully quit Claude Desktop from the tray and reopen it.
+The copied config looks like this; the token is passed through `env` because on Windows an argument with a space
+in it can get split:
 ```json
 {
   "mcpServers": {
-    "browser": {
+    "zirtola": {
       "command": "npx",
-      "args": ["-y", "mcp-remote", "http://127.0.0.1:47823/mcp", "--header", "Authorization: Bearer <token>"]
+      "args": ["-y", "mcp-remote", "http://127.0.0.1:47823/mcp", "--header", "Authorization:${AUTH_HEADER}"],
+      "env": { "AUTH_HEADER": "Bearer <token>" }
     }
   }
 }
 ```
+If it doesn't show up, Claude Desktop's log is at `%APPDATA%\Claude\logs\mcp-server-zirtola.log`.
+
+Claude on the web (claude.ai) and cloud sessions can't reach it: the server only listens on your own computer.
 
 ## Development
 

@@ -414,7 +414,13 @@ export class Menus {
                 : 'Starts a local MCP server that Claude Code or Claude Desktop can connect to.',
               value: s.mcp.enabled,
             },
-            { kind: 'button', action: 'copyMcpCommand', label: 'Copy', description: 'Copy the "claude mcp add" command (contains your secret token).' },
+            { kind: 'button', action: 'copyMcpCommand', label: 'Copy', description: 'Claude Code: copy the "claude mcp add" command (contains your secret token).' },
+            {
+              kind: 'button',
+              action: 'copyMcpDesktopConfig',
+              label: 'Copy',
+              description: 'Claude Desktop: copy the config for claude_desktop_config.json (contains your secret token; needs Node.js).',
+            },
             { kind: 'toggle', key: 'mcp.allowEvaluate', label: 'Allow Claude to run JavaScript in pages', value: s.mcp.allowEvaluate },
             { kind: 'toggle', key: 'mcp.allowIncognito', label: 'Allow Claude in private windows', value: s.mcp.allowIncognito },
             { kind: 'button', action: 'regenerateToken', label: 'Reset', description: 'Make a new secret token (disconnects existing connections).', style: 'danger' },
@@ -541,6 +547,9 @@ export class Menus {
       }
       case 'copyExtensionDiagnostics':
         clipboard.writeText(diagnosticsText(this.browser.profile))
+        return
+      case 'copyMcpDesktopConfig':
+        clipboard.writeText(BrowserMcpServer.desktopConfig())
         return
       case 'copyMcpCommand':
         clipboard.writeText(BrowserMcpServer.connectCommand())
