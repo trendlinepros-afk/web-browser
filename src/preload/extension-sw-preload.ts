@@ -4,6 +4,9 @@
 //  - chrome.alarms: Electron's alarms never fire. Ours are scheduled in the main process, which
 //    wakes the worker when one is due (Chrome suspends idle workers after ~30s).
 //  - chrome.identity: launchWebAuthFlow / getRedirectURL for extension sign-in (SSO) flows.
+//  - `browser`: Chromium now also exposes the APIs as a separate `browser` object, which doesn't get
+//    electron-chrome-extensions' additions (browser.windows is undefined). Extensions that prefer
+//    `browser` (LastPass) crashed at startup; it now points at the same `chrome`.
 //  - chrome.omnibox: missing entirely, so extensions that declare an address-bar keyword (LastPass's
 //    "lp") crashed on startup. Zirtola's address bar delivers "<keyword> <text>" to them.
 // Must be registered before electron-chrome-extensions' preload, which freezes `chrome`.
@@ -37,6 +40,12 @@ if (isExtensionWorker) {
       delete g.__zirtolaExt
       const chrome = g.chrome
       if (!bridge || !chrome) return
+
+      // `browser` resolves to the finished `chrome` (electron-chrome-extensions patches it after us).
+      const browserDesc = Object.getOwnPropertyDescriptor(globalThis, 'browser')
+      if (!browserDesc || browserDesc.configurable) {
+        Object.defineProperty(globalThis, 'browser', { get: () => g.chrome, configurable: true, enumerable: false })
+      }
 
       // Diagnostics: once the extension's own script has started, record which chrome.* APIs it
       // actually got (electron-chrome-extensions' preload adds windows, tabs, action, …).

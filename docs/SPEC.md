@@ -37,6 +37,9 @@ Gaps filled so far (`src/main/extension-apis.ts` + `src/preload/extension-sw-pre
 - **`chrome.alarms`**: Electron accepts alarms but never fires them. Zirtola schedules them in the main
   process (persisted across restarts) and wakes the extension's sleeping service worker to deliver them.
 - **`chrome.identity`**: `launchWebAuthFlow` / `getRedirectURL` for extension sign-in flows.
+- **`browser` namespace**: Chromium 152 also exposes extension APIs as a separate `browser` object that misses
+  electron-chrome-extensions' additions (`browser.windows` undefined). LastPass uses `browser` and crashed at startup
+  on `browser.windows.onFocusChanged`. Zirtola points `browser` at `chrome` in extension workers and pages.
 - **`chrome.omnibox`**: missing in Electron, so extensions declaring an address-bar keyword crashed at startup
   (LastPass 4.156 declares `"omnibox": {"keyword": "lp"}`). Typing `<keyword> <text>` in the address bar delivers
   onInputEntered to that extension.
