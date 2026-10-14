@@ -573,7 +573,7 @@ browser-action-list::part(action):hover {
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 1px;
   overflow: hidden;
   height: 100%;
 }
@@ -583,8 +583,8 @@ browser-action-list::part(action):hover {
   height: 26px;
   display: flex;
   align-items: center;
-  gap: 7px;
-  padding: 0 10px;
+  gap: 5px;
+  padding: 0 6px;
   border: 1px solid transparent;
   border-radius: 8px;
   background: transparent;
@@ -631,10 +631,10 @@ browser-action-list::part(action):hover {
   background: var(--grad);
 }
 .bm.drop-before::before {
-  left: -3px;
+  left: -2px;
 }
 .bm.drop-after::after {
-  right: -3px;
+  right: -2px;
 }
 .bm.drop-into {
   border-color: var(--accent);
