@@ -41,3 +41,47 @@
     System::Call 'shell32::SHChangeNotify(i 0x08000000, i 0, p 0, p 0)'
   ${endIf}
 !macroend
+
+; Closing a running Zirtola before installing or updating.
+; electron-builder's built-in check closes every process whose path merely *starts with* the install
+; folder, so installing to ...\Programs\zirtola also closed ...\Programs\zirtola-shot\Zirtola Shot.exe
+; (and anything else in a folder whose name begins with "zirtola"). Match Zirtola.exe by exact name
+; for the current user instead.
+!macro zirtolaFindRunning _RETURN
+  nsExec::Exec `"$CmdPath" /C tasklist /FI "USERNAME eq %USERNAME%" /FI "IMAGENAME eq ${APP_EXECUTABLE_FILENAME}" /FO CSV /NH | "$SYSDIR\findstr.exe" /B /I /C:"\"${APP_EXECUTABLE_FILENAME}\""`
+  Pop ${_RETURN}
+!macroend
+
+!macro customCheckAppRunning
+  ${if} ${isUpdated}
+    ; Zirtola quits by itself to install an update; give it a moment.
+    Sleep 1000
+  ${endIf}
+  !insertmacro zirtolaFindRunning $R0
+  ${if} $R0 == 0
+    ${ifNot} ${isUpdated}
+      MessageBox MB_OKCANCEL|MB_ICONEXCLAMATION "$(appRunning)" /SD IDOK IDOK zirtola_close
+      Quit
+    ${endIf}
+    zirtola_close:
+    DetailPrint "$(appClosing)"
+    StrCpy $R1 0
+    zirtola_retry:
+      IntOp $R1 $R1 + 1
+      nsExec::Exec `"$CmdPath" /C taskkill /IM "${APP_EXECUTABLE_FILENAME}" /FI "USERNAME eq %USERNAME%"`
+      Sleep 1500
+      !insertmacro zirtolaFindRunning $R0
+      ${if} $R0 == 0
+        nsExec::Exec `"$CmdPath" /C taskkill /F /IM "${APP_EXECUTABLE_FILENAME}" /FI "USERNAME eq %USERNAME%"`
+        Sleep 1000
+        !insertmacro zirtolaFindRunning $R0
+      ${endIf}
+      ${if} $R0 == 0
+        ${if} $R1 > 2
+          MessageBox MB_RETRYCANCEL|MB_ICONEXCLAMATION "$(appCannotBeClosed)" /SD IDCANCEL IDRETRY zirtola_retry
+          Quit
+        ${endIf}
+        Goto zirtola_retry
+      ${endIf}
+  ${endIf}
+!macroend
