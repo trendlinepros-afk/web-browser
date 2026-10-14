@@ -4,6 +4,8 @@
 //  - chrome.alarms: Electron's alarms never fire. Ours are scheduled in the main process, which
 //    wakes the worker when one is due (Chrome suspends idle workers after ~30s).
 //  - chrome.identity: launchWebAuthFlow / getRedirectURL for extension sign-in (SSO) flows.
+//  - chrome.omnibox: missing entirely, so extensions that declare an address-bar keyword (LastPass's
+//    "lp") crashed on startup. Zirtola's address bar delivers "<keyword> <text>" to them.
 // Must be registered before electron-chrome-extensions' preload, which freezes `chrome`.
 const { contextBridge, ipcRenderer } = require('electron') as typeof import('electron')
 
@@ -25,7 +27,12 @@ if (isExtensionWorker) {
         alarms: (op: string, ...args: unknown[]) => Promise<unknown>
         identity: (op: string, ...args: unknown[]) => Promise<unknown>
       }
-      const g = globalThis as unknown as { __zirtolaExt?: Bridge; chrome?: Record<string, unknown>; __zirtolaFireAlarm?: (a: unknown) => void }
+      const g = globalThis as unknown as {
+        __zirtolaExt?: Bridge
+        chrome?: Record<string, unknown>
+        __zirtolaFireAlarm?: (a: unknown) => void
+        __zirtolaFireOmnibox?: (name: string, args: unknown[]) => void
+      }
       const bridge = g.__zirtolaExt
       delete g.__zirtolaExt
       const chrome = g.chrome
@@ -116,14 +123,44 @@ if (isExtensionWorker) {
         onClosed: makeEvent<() => void>().event,
       }
 
+      const omniboxEvents = {
+        onInputStarted: makeEvent<(...a: unknown[]) => void>(),
+        onInputChanged: makeEvent<(...a: unknown[]) => void>(),
+        onInputEntered: makeEvent<(...a: unknown[]) => void>(),
+        onInputCancelled: makeEvent<(...a: unknown[]) => void>(),
+        onDeleteSuggestion: makeEvent<(...a: unknown[]) => void>(),
+      }
+      const omnibox = {
+        setDefaultSuggestion: (...args: unknown[]) => withCallback(args.slice(1), Promise.resolve()),
+        ...Object.fromEntries(Object.entries(omniboxEvents).map(([k, v]) => [k, v.event])),
+      }
+      g.__zirtolaFireOmnibox = (name: string, args: unknown[]) => {
+        const listeners = omniboxEvents[name as keyof typeof omniboxEvents]?.listeners ?? []
+        for (const f of listeners) {
+          try {
+            ;(f as (...a: unknown[]) => void)(...args)
+          } catch (err) {
+            console.error(err)
+          }
+        }
+      }
+
       try {
         Object.defineProperty(chrome, 'alarms', { value: alarms, configurable: true, enumerable: true })
+        if (!('omnibox' in chrome)) Object.defineProperty(chrome, 'omnibox', { value: omnibox, configurable: true, enumerable: true })
         Object.defineProperty(chrome, 'identity', { value: identity, configurable: true, enumerable: true })
         if (!('sidePanel' in chrome)) Object.defineProperty(chrome, 'sidePanel', { value: sidePanel, configurable: true, enumerable: true })
       } catch (err) {
         console.error('Zirtola extension APIs failed to install', err)
       }
     },
+  })
+
+  ipcRenderer.on('zirtola-omnibox', (_e, name: string, args: unknown[]) => {
+    contextBridge.executeInMainWorld({
+      func: (n: string, a: unknown[]) => (globalThis as unknown as { __zirtolaFireOmnibox?: (n: string, a: unknown[]) => void }).__zirtolaFireOmnibox?.(n, a),
+      args: [name, args],
+    })
   })
 
   ipcRenderer.on('zirtola-alarm', (_e, alarm: unknown) => {

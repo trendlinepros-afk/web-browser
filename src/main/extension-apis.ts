@@ -208,6 +208,32 @@ export class ExtensionApis {
     }
   }
 
+  // ---- chrome.omnibox ----------------------------------------------------------
+
+  /** The extension whose address-bar keyword starts this input ("lp facebook" → LastPass), if any. */
+  omniboxTarget(input: string): { extensionId: string; text: string } | null {
+    const m = /^(\S+)\s+(.+)$/.exec(input.trim())
+    if (!m) return null
+    for (const ext of this.ses.extensions.getAllExtensions()) {
+      const keyword = (ext.manifest as { omnibox?: { keyword?: string } }).omnibox?.keyword
+      if (keyword && keyword.toLowerCase() === m[1].toLowerCase()) return { extensionId: ext.id, text: m[2] }
+    }
+    return null
+  }
+
+  /** Delivers "<keyword> <text>" + Enter from the address bar, like Chrome's omnibox. */
+  async omniboxEnter(extensionId: string, text: string): Promise<void> {
+    try {
+      const worker = await this.ses.serviceWorkers.startWorkerForScope(`chrome-extension://${extensionId}/`)
+      this.wire(worker)
+      worker.send('zirtola-omnibox', 'onInputStarted', [])
+      worker.send('zirtola-omnibox', 'onInputEntered', [text, 'currentTab'])
+      diag(`[${extensionId.slice(0, 6)}] omnibox "${text}"`)
+    } catch (err) {
+      diag(`[${extensionId.slice(0, 6)}] omnibox failed: ${err instanceof Error ? err.message : String(err)}`)
+    }
+  }
+
   // ---- chrome.identity ----------------------------------------------------------
 
   /** Opens the sign-in page in a window; resolves with the final URL once it redirects to the extension. */

@@ -7,6 +7,7 @@ import type { SavedTab, Tab } from './tab'
 import { getSettings } from './settings'
 import { configureSession } from './permissions'
 import { toNavigableURL } from './url'
+import type { ExtensionApis } from './extension-apis'
 import { AdBlocker } from './blocker'
 import { configureNetwork } from './privacy'
 import { BookmarkStore } from './bookmarks'
@@ -243,6 +244,9 @@ export class Browser {
           return tab && w.activateTab(tab)
         case 'navigate': {
           if (!tab || typeof args[1] !== 'string') return
+          // An extension's address-bar keyword ("lp facebook" for LastPass) goes to that extension.
+          const omnibox = w.incognito ? null : this.extensionApis?.omniboxTarget(args[1])
+          if (omnibox) return void this.extensionApis!.omniboxEnter(omnibox.extensionId, omnibox.text)
           const url = toNavigableURL(args[1], getSettings().searchEngine)
           if (!url) return
           tab.loadURL(url)
@@ -298,6 +302,8 @@ export class Browser {
   onShowTabMenu: ((w: BrowserWindowController, tab: Tab, x: number, y: number) => void) | null = null
   onShowGroupMenu: ((w: BrowserWindowController, groupId: number, x: number, y: number) => void) | null = null
   onOpenChat: ((w: BrowserWindowController, x: number, y: number) => void) | null = null
+  /** Zirtola's own chrome.* additions for extensions (set up with extension support). */
+  extensionApis: ExtensionApis | null = null
   onShowShieldMenu: ((w: BrowserWindowController, x: number, y: number) => void) | null = null
   onBookmarkCommand: ((w: BrowserWindowController, name: string, args: unknown[]) => void) | null = null
 }

@@ -37,6 +37,10 @@ Gaps filled so far (`src/main/extension-apis.ts` + `src/preload/extension-sw-pre
 - **`chrome.alarms`**: Electron accepts alarms but never fires them. Zirtola schedules them in the main
   process (persisted across restarts) and wakes the extension's sleeping service worker to deliver them.
 - **`chrome.identity`**: `launchWebAuthFlow` / `getRedirectURL` for extension sign-in flows.
+- **`chrome.omnibox`**: missing in Electron, so extensions declaring an address-bar keyword crashed at startup
+  (LastPass 4.156 declares `"omnibox": {"keyword": "lp"}`). Typing `<keyword> <text>` in the address bar delivers
+  onInputEntered to that extension.
+- **`chrome.sidePanel`**: harmless stand-in (no side panel yet).
 - **Diagnostics**: Settings → Extensions → Copy collects extension worker/page logs for bug reports.
 
 **Licensing:** `electron-chrome-extensions` is dual-licensed as GPL-3.0 or a paid patron license. Because this

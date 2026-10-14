@@ -26,7 +26,7 @@ export async function setupExtensions(browser: Browser): Promise<ElectronChromeE
     type: 'service-worker',
     filePath: path.join(__dirname, '..', 'preload', 'extension-sw-preload.js'),
   })
-  new ExtensionApis(ses)
+  browser.extensionApis = new ExtensionApis(ses)
 
   const extensions = new ElectronChromeExtensions({
     license: 'GPL-3.0',
