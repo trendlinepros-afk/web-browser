@@ -58,7 +58,7 @@ export class ExtensionApis {
       if (!scope.startsWith('chrome-extension://')) return
       diag(`[${shortScope(scope)} worker ${levelName(d.level)}] ${d.message}${d.sourceUrl ? ` (${d.sourceUrl.split('/').pop()}:${d.lineNumber})` : ''}`)
     })
-    ses.extensions.on('extension-loaded', (_e, ext) => diag(`loaded ${ext.name} ${ext.version}`))
+    ses.extensions.on('extension-loaded', (_e, ext) => diag(`loaded ${ext.name} ${ext.version} from ${ext.path}`))
     ses.extensions.on('extension-unloaded', (_e, ext) => diag(`unloaded ${ext.name}`))
     app.on('web-contents-created', (_e, wc) => {
       if (wc.session !== ses) return

@@ -38,6 +38,16 @@ if (isExtensionWorker) {
       const chrome = g.chrome
       if (!bridge || !chrome) return
 
+      // Diagnostics: once the extension's own script has started, record which chrome.* APIs it
+      // actually got (electron-chrome-extensions' preload adds windows, tabs, action, …).
+      setTimeout(() => {
+        const c = g.chrome ?? {}
+        const names = ['runtime', 'tabs', 'windows', 'action', 'contextMenus', 'storage', 'alarms', 'omnibox', 'webRequest', 'offscreen']
+        console.info(
+          `[zirtola] APIs: ${names.map((n) => `${n}=${c[n] ? Object.keys(c[n] as object).length : 'MISSING'}`).join(' ')}; frozen=${Object.isFrozen(c)}`,
+        )
+      }, 0)
+
       // Chrome APIs return a promise, or call a trailing callback when given one.
       const withCallback = (args: unknown[], promise: Promise<unknown>) => {
         const cb = typeof args[args.length - 1] === 'function' ? (args[args.length - 1] as (v: unknown) => void) : null
