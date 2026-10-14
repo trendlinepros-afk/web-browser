@@ -645,3 +645,234 @@ button.icon:focus-visible {
 .btn.danger {
   color: var(--danger);
 }
+
+/* ---- Claude chat ---------------------------------------------------------------- */
+
+#chat {
+  position: fixed;
+  width: min(410px, calc(100vw - 16px));
+  height: min(600px, calc(100vh - 110px));
+  display: grid;
+  grid-template-rows: auto 1fr auto;
+  border-radius: 18px;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--sheet-bg), var(--sheet-bg)) padding-box,
+    var(--grad) border-box;
+  box-shadow: var(--shadow), 0 0 40px rgba(106, 92, 255, 0.18);
+  overflow: hidden;
+  animation: drop 160ms cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+#chat header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 10px 10px 16px;
+  border-bottom: 1px solid var(--line);
+}
+#chat header .mark {
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  background: var(--grad);
+  box-shadow: 0 0 14px rgba(106, 92, 255, 0.45);
+}
+#chat header .title {
+  font: 600 15px var(--font-display);
+}
+#chat header .where {
+  flex: 1;
+  color: var(--muted);
+  font-size: 12px;
+}
+#chat-log {
+  overflow-y: auto;
+  padding: 14px 16px 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  user-select: text;
+}
+#chat-log::-webkit-scrollbar {
+  width: 10px;
+}
+#chat-log::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 5px;
+  border: 3px solid var(--sheet-bg);
+}
+.msg {
+  max-width: 100%;
+  line-height: 1.5;
+  overflow-wrap: anywhere;
+}
+.msg.user {
+  align-self: flex-end;
+  max-width: 85%;
+  padding: 8px 12px;
+  border-radius: 14px 14px 4px 14px;
+  background: var(--grad);
+  color: #fff;
+  white-space: pre-wrap;
+}
+.msg.assistant p {
+  margin: 0 0 8px;
+}
+.msg.assistant p:last-child {
+  margin-bottom: 0;
+}
+.msg.assistant ul,
+.msg.assistant ol {
+  margin: 0 0 8px;
+  padding-left: 20px;
+}
+.msg.assistant li + li {
+  margin-top: 3px;
+}
+.msg.assistant code {
+  padding: 1px 5px;
+  border-radius: 5px;
+  background: var(--hover);
+  font: 12px ui-monospace, 'Cascadia Code', Consolas, monospace;
+}
+.msg.tool {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.msg.tool svg {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.msg.tool + .msg.tool {
+  margin-top: -6px;
+}
+.msg.error {
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+  color: var(--danger);
+  font-size: 12.5px;
+}
+.msg.working {
+  display: flex;
+  gap: 4px;
+  padding: 4px 0;
+}
+.msg.working i {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: blink 1.2s infinite ease-in-out;
+}
+.msg.working i:nth-child(2) {
+  animation-delay: 0.15s;
+}
+.msg.working i:nth-child(3) {
+  animation-delay: 0.3s;
+}
+@keyframes blink {
+  0%,
+  80%,
+  100% {
+    opacity: 0.25;
+  }
+  40% {
+    opacity: 1;
+  }
+}
+.chat-empty {
+  margin: auto 0;
+  padding: 8px 4px;
+  color: var(--muted);
+  line-height: 1.5;
+  text-align: center;
+}
+.chat-empty p {
+  margin: 0 0 12px;
+}
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 6px;
+}
+.chip {
+  height: 30px;
+  padding: 0 12px;
+  border-radius: 15px;
+  border: 1px solid var(--line-strong);
+  background: var(--raised);
+  color: var(--fg);
+  font-size: 12px;
+}
+.chip:hover {
+  border-color: var(--accent);
+}
+#chat-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+  margin: 8px 12px 12px;
+  padding: 6px 6px 6px 12px;
+  border-radius: 14px;
+  border: 1px solid var(--line-strong);
+  background: var(--raised);
+}
+#chat-form:focus-within {
+  border-color: var(--accent);
+}
+#chat-input {
+  flex: 1;
+  min-height: 24px;
+  max-height: 140px;
+  padding: 4px 0;
+  border: 0;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  line-height: 1.45;
+  resize: none;
+  outline: none;
+  user-select: text;
+}
+#chat-input::placeholder {
+  color: var(--muted);
+}
+#chat-send {
+  flex: none;
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 10px;
+  display: grid;
+  place-items: center;
+  background: var(--grad);
+  color: #fff;
+}
+#chat-send.stop {
+  background: var(--line-strong);
+  color: var(--fg);
+}
+#chat-send svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+#chat-send.stop svg {
+  fill: currentColor;
+  stroke: none;
+}

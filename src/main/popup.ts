@@ -1,6 +1,6 @@
 import { ipcMain, Menu, MenuItem, nativeImage, WebContentsView, type MenuItemConstructorOptions, type WebContents } from 'electron'
 import path from 'node:path'
-import type { PopupItem, PopupModifiers, PromptSpec, SettingsModel } from '../shared/types'
+import type { ChatState, PopupItem, PopupModifiers, PromptSpec, SettingsModel } from '../shared/types'
 import type { BrowserWindowController } from './window'
 import { integratedTitleBar, uiPlatform } from './theme'
 
@@ -48,12 +48,14 @@ export class PopupHost {
 
   private handlers = new Map<number, Handler>()
   private nextId = 1
-  private openKind: 'menu' | 'settings' | 'prompt' | null = null
+  private openKind: 'menu' | 'settings' | 'prompt' | 'chat' | null = null
   private pendingPrompt: { spec: PromptSpec; resolve: (index: number) => void } | null = null
   private promptQueue: { spec: PromptSpec; resolve: (index: number) => void }[] = []
   private restoreFocus: WebContents | null = null
   onSetting: ((key: string, value: unknown) => void) | null = null
   onAction: ((name: string) => void) | null = null
+  /** Chat panel: 'send' (with text), 'stop' or 'new'. */
+  onChat: ((op: 'send' | 'stop' | 'new', text?: string) => void) | null = null
 
   constructor(private readonly w: BrowserWindowController) {}
 
@@ -64,6 +66,7 @@ export class PopupHost {
     ipcMain.on('overlay:setting', (e, key: string, value: unknown) => host(e)?.onSetting?.(key, value))
     ipcMain.on('overlay:action', (e, name: string) => host(e)?.onAction?.(name))
     ipcMain.on('overlay:answer', (e, index: number) => host(e)?.answer(index))
+    ipcMain.on('overlay:chat', (e, op: 'send' | 'stop' | 'new', text?: string) => host(e)?.onChat?.(op, typeof text === 'string' ? text : undefined))
   }
 
   get isOpen(): boolean {
@@ -92,7 +95,7 @@ export class PopupHost {
     return PopupHost.loaded
   }
 
-  private async open(kind: 'menu' | 'settings' | 'prompt', channel: string, payload: object): Promise<void> {
+  private async open(kind: 'menu' | 'settings' | 'prompt' | 'chat', channel: string, payload: object): Promise<void> {
     await PopupHost.ensure()
     const view = PopupHost.view!
     const win = this.w.win
@@ -146,6 +149,22 @@ export class PopupHost {
 
   settings(model: SettingsModel): void {
     void this.open('settings', 'overlay:show-settings', model)
+  }
+
+  /** The Claude chat panel, dropping down from (x, y): the right edge and bottom of the Claude button. */
+  chat(state: ChatState, x: number, y: number): void {
+    void this.open('chat', 'overlay:show-chat', { state, x: Math.round(x), y: Math.round(y) })
+  }
+
+  updateChat(state: ChatState): void {
+    if (this.openKind === 'chat' && PopupHost.current === this) PopupHost.view?.webContents.send('overlay:update-chat', state)
+  }
+
+  /** A new tab view went on top of the overlay; put the overlay back above it. */
+  raise(): void {
+    const view = PopupHost.view
+    if (!this.openKind || PopupHost.current !== this || !view || this.w.win.isDestroyed()) return
+    this.w.win.contentView.addChildView(view)
   }
 
   /** Pushes fresh values into an open settings panel. */

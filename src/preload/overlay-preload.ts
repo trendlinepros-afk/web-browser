@@ -1,6 +1,6 @@
 // Preload for the overlay that draws Zirtola's menus and settings panel.
 import { contextBridge, ipcRenderer } from 'electron'
-import type { PopupItem, PopupModifiers, PromptSpec, SettingsModel } from '../shared/types'
+import type { ChatState, PopupItem, PopupModifiers, PromptSpec, SettingsModel } from '../shared/types'
 
 contextBridge.exposeInMainWorld('overlay', {
   onShowMenu: (cb: (m: { items: PopupItem[]; x: number; y: number; align: 'left' | 'right' }) => void) =>
@@ -14,4 +14,7 @@ contextBridge.exposeInMainWorld('overlay', {
   close: () => ipcRenderer.send('overlay:close'),
   setSetting: (key: string, value: unknown) => ipcRenderer.send('overlay:setting', key, value),
   action: (name: string) => ipcRenderer.send('overlay:action', name),
+  onShowChat: (cb: (m: { state: ChatState; x: number; y: number; incognito?: boolean }) => void) => ipcRenderer.on('overlay:show-chat', (_e, m) => cb(m)),
+  onUpdateChat: (cb: (s: ChatState) => void) => ipcRenderer.on('overlay:update-chat', (_e, s) => cb(s)),
+  chat: (op: 'send' | 'stop' | 'new', text?: string) => ipcRenderer.send('overlay:chat', op, text),
 })

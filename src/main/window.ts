@@ -379,6 +379,7 @@ export class BrowserWindowController {
     if (!this.incognito) this.browser.extensions?.addTab(view.webContents, this.win)
     this.browser.mcpTabsChanged()
     if (this.activeTab === tab) this.showActiveView()
+    this.popup.raise()
   }
 
   onTabWoke(tab: Tab): void {

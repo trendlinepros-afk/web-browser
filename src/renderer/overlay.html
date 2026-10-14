@@ -39,6 +39,20 @@
         <div id="settings-body"></div>
       </div>
     </aside>
+    <section id="chat" hidden aria-label="Chat with Claude">
+      <header>
+        <span class="mark" aria-hidden="true"></span>
+        <div class="title">Claude</div>
+        <span class="where">in Zirtola</span>
+        <button id="chat-new" class="icon" type="button" title="New chat" aria-label="New chat"></button>
+        <button id="chat-close" class="icon" type="button" title="Close (Esc)" aria-label="Close chat"></button>
+      </header>
+      <div id="chat-log" aria-live="polite"></div>
+      <form id="chat-form" autocomplete="off">
+        <textarea id="chat-input" rows="1" placeholder="Ask Claude to do something in this tab…" spellcheck="true"></textarea>
+        <button id="chat-send" type="submit" aria-label="Send"></button>
+      </form>
+    </section>
     <script type="module" src="overlay.js"></script>
   </body>
 </html>

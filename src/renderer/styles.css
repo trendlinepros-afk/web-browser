@@ -522,6 +522,9 @@ body.frame-integrated.platform-darwin #mark {
 
 #mcp-badge {
   flex: none;
+  color: var(--fg);
+  font-family: inherit;
+  cursor: default;
   display: flex;
   align-items: center;
   gap: 6px;
@@ -543,6 +546,15 @@ body.frame-integrated.platform-darwin #mark {
   border-radius: 50%;
   background: #19d3e6;
   box-shadow: 0 0 8px #19d3e6;
+}
+#mcp-badge:hover {
+  background:
+    linear-gradient(var(--raised-hover), var(--raised-hover)) padding-box,
+    var(--grad) border-box;
+}
+#mcp-badge.off::before {
+  background: var(--faint);
+  box-shadow: none;
 }
 
 #extensions {

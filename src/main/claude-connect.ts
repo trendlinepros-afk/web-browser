@@ -1,7 +1,7 @@
 import { app } from 'electron'
-import { execFile } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
+import { findClaude, runClaude } from './claude-cli'
 import { flushSettings, getSettings, settingsFile } from './settings'
 
 /**
@@ -14,7 +14,7 @@ export type ConnectResult = 'connected' | 'not-installed' | { error: string }
 
 const SERVER_NAME = 'zirtola'
 
-function serverEntry(): { command: string; args: string[]; env: Record<string, string> } {
+export function serverEntry(): { command: string; args: string[]; env: Record<string, string> } {
   return {
     command: process.execPath,
     args: [path.join(__dirname, 'mcp-bridge.js'), settingsFile()],
@@ -49,31 +49,10 @@ function connectDesktop(): ConnectResult {
   return 'connected'
 }
 
-function runClaude(args: string[]): Promise<void> {
-  return new Promise((resolve, reject) => {
-    execFile('claude', args, { timeout: 30_000, windowsHide: true }, (err) => {
-      if (!err) return resolve()
-      // An npm-installed Claude Code is claude.cmd on Windows, which needs a shell.
-      if ((err as NodeJS.ErrnoException).code === 'ENOENT' && process.platform === 'win32') {
-        const quoted = args.map((a) => `"${a}"`).join(' ')
-        execFile('cmd.exe', ['/d', '/s', '/c', `"claude ${quoted}"`], { timeout: 30_000, windowsHide: true, windowsVerbatimArguments: true }, (err2) =>
-          err2 ? reject(err2) : resolve(),
-        )
-        return
-      }
-      reject(err)
-    })
-  })
-}
-
 /** Claude Code: `claude mcp add` at user scope, so it works from any folder. */
 async function connectCode(): Promise<ConnectResult> {
   const { command, args, env } = serverEntry()
-  try {
-    await runClaude(['--version'])
-  } catch {
-    return 'not-installed'
-  }
+  if (!findClaude()) return 'not-installed'
   await runClaude(['mcp', 'remove', SERVER_NAME, '--scope', 'user']).catch(() => {})
   try {
     const envArgs = Object.entries(env).flatMap(([k, v]) => ['-e', `${k}=${v}`])

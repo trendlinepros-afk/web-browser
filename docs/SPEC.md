@@ -250,6 +250,15 @@ Goal: nothing should feel like Chrome or Firefox. Same two-row layout (tabs abov
   group, move to new window, ungroup, close). Drag tabs to reorder and into/out of groups; drag the label to move
   the whole group. Groups are saved with the session.
 
+### Stage 1.10: Claude in the browser (done)
+- **Connect** (Settings › Claude): one click registers Zirtola with Claude Desktop and Claude Code. Both launch
+  Zirtola.exe as a stdio↔HTTP MCP bridge (`mcp-bridge.ts`, ELECTRON_RUN_AS_NODE) that reads port and token from
+  settings, so no Node.js and no token copying.
+- **Chat panel** (toolbar Claude button, Ctrl+Shift+K): drops down from the button in the overlay. Each message runs
+  the local Claude Code CLI headless (`claude -p`, stream-json) with only Zirtola's MCP tools (`--tools ""`,
+  `--strict-mcp-config`), resuming the window's conversation; the active tab is passed as context. Uses the person's
+  Claude login (`claude-chat.ts`, `claude-cli.ts`).
+
 ### Stage 2: UI & everyday features
 Design target: Windows 11 (Fluent): rounded corners, Mica-style surfaces, Segoe UI Variable, accent color.
 - Tab animations; themed dialogs for update notices and import results (permission prompts are done)

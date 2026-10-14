@@ -92,6 +92,13 @@ Tabs you haven't looked at for 15 minutes go to sleep: they show dimmed and use 
 Change the timeout in ⚙ → **Settings → Speed & memory**. If your computer runs low on memory, the
 least recently used tabs sleep first. Tabs playing audio, using your camera or mic, or pinned stay awake.
 
+### Chat with Claude
+Click the **Claude** button in the toolbar (or press Ctrl+Shift+K) and type what you want: *"Summarize this page"*,
+*"Find the cheapest option here and add it to the cart"*. Claude sees the tab you're on and works in the browser while
+you watch; each step shows up in the chat. It uses the Claude Code on your computer, so it runs on your own Claude
+login with no API key. If Claude Code isn't installed, the panel tells you how to get it. In this chat Claude can
+only use the browser: no files, no commands. It asks before buying, sending or deleting anything.
+
 ### Letting Claude drive the browser (MCP)
 1. ⚙ → **Settings → Claude → Connect**. That's it: Zirtola sets up Claude Desktop and Claude Code (whichever you
    have) to use it. Nothing to copy, and no Node.js needed.

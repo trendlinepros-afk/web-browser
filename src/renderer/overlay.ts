@@ -1,5 +1,5 @@
 // Draws Zirtola's menus and settings panel above the page. Plain DOM; driven by the main process.
-import type { PopupItem, PopupModifiers, PromptSpec, SettingsControl, SettingsModel, SettingsSection } from '../shared/types'
+import type { ChatEntry, ChatState, PopupItem, PopupModifiers, PromptSpec, SettingsControl, SettingsModel, SettingsSection } from '../shared/types'
 
 interface OverlayApi {
   onShowMenu(cb: (m: { items: PopupItem[]; x: number; y: number; align: 'left' | 'right'; incognito?: boolean }) => void): void
@@ -12,12 +12,16 @@ interface OverlayApi {
   action(name: string): void
   onShowPrompt(cb: (p: PromptSpec & { incognito?: boolean }) => void): void
   answer(index: number): void
+  onShowChat(cb: (m: { state: ChatState; x: number; y: number; incognito?: boolean }) => void): void
+  onUpdateChat(cb: (s: ChatState) => void): void
+  chat(op: 'send' | 'stop' | 'new', text?: string): void
 }
 
 const api = (window as unknown as { overlay: OverlayApi }).overlay
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T
 const menusEl = $<HTMLDivElement>('menus')
 const settingsEl = $<HTMLElement>('settings')
+const chatEl = $<HTMLElement>('chat')
 const scrim = $<HTMLDivElement>('scrim')
 
 const params = new URLSearchParams(location.search)
@@ -49,6 +53,7 @@ function closeAll(): void {
   if (activePrompt) return answerPrompt(activePrompt.cancelId)
   closeFrom(0)
   settingsEl.hidden = true
+  chatEl.hidden = true
   document.body.classList.remove('settings-open')
   api.close()
 }
@@ -209,6 +214,7 @@ api.onHide(() => {
   activePrompt = null
   closeFrom(0)
   settingsEl.hidden = true
+  chatEl.hidden = true
   document.body.classList.remove('settings-open')
 })
 
@@ -463,3 +469,140 @@ document.addEventListener('keydown', (e) => {
     query.select()
   }
 })
+
+// ---- Claude chat ----------------------------------------------------------------
+
+const chatLog = $<HTMLDivElement>('chat-log')
+const chatForm = $<HTMLFormElement>('chat-form')
+const chatInput = $<HTMLTextAreaElement>('chat-input')
+const chatSend = $<HTMLButtonElement>('chat-send')
+const SEND = '<svg viewBox="0 0 24 24"><path d="M12 19V5M6 11l6-6 6 6"/></svg>'
+const STOP = '<svg viewBox="0 0 24 24"><rect x="7" y="7" width="10" height="10" rx="2"/></svg>'
+const TOOL = '<svg viewBox="0 0 24 24"><path d="M5 12h3l2-5 4 10 2-5h3"/></svg>'
+$('chat-new').innerHTML = '<svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>'
+$('chat-close').innerHTML = CLOSE
+const SUGGESTIONS = ['Summarize this page', 'What are the key points here?', 'Find the cheapest option on this page', 'Open my email']
+let chatBusy = false
+
+/** A little Markdown, built from DOM nodes (never innerHTML): paragraphs, lists, **bold**, `code`. */
+function renderMarkdown(text: string): DocumentFragment {
+  const frag = document.createDocumentFragment()
+  const inline = (line: string, into: HTMLElement) => {
+    for (const part of line.split(/(\*\*[^*]+\*\*|`[^`]+`)/g)) {
+      if (!part) continue
+      if (part.startsWith('**') && part.endsWith('**') && part.length > 4) into.append(Object.assign(document.createElement('strong'), { textContent: part.slice(2, -2) }))
+      else if (part.startsWith('`') && part.endsWith('`') && part.length > 2) into.append(Object.assign(document.createElement('code'), { textContent: part.slice(1, -1) }))
+      else into.append(part)
+    }
+  }
+  const isItem = (l: string) => /^\s*([-*•]|\d+[.)])\s+/.test(l)
+  for (const block of text.trim().split(/\n{2,}/)) {
+    // Runs of list lines become a list; other lines become a paragraph.
+    const lines = block.split('\n')
+    for (let i = 0; i < lines.length; ) {
+      if (isItem(lines[i])) {
+        const list = document.createElement(/^\s*\d/.test(lines[i]) ? 'ol' : 'ul')
+        for (; i < lines.length && isItem(lines[i]); i++) {
+          const li = document.createElement('li')
+          inline(lines[i].replace(/^\s*([-*•]|\d+[.)])\s+/, ''), li)
+          list.append(li)
+        }
+        frag.append(list)
+      } else {
+        const p = document.createElement('p')
+        for (let first = true; i < lines.length && !isItem(lines[i]); i++, first = false) {
+          if (!first) p.append(document.createElement('br'))
+          inline(lines[i].replace(/^#+\s+/, ''), p)
+        }
+        frag.append(p)
+      }
+    }
+  }
+  return frag
+}
+
+function chatEntry(e: ChatEntry): HTMLElement {
+  const el = Object.assign(document.createElement('div'), { className: `msg ${e.role}` })
+  if (e.role === 'assistant') el.append(renderMarkdown(e.text))
+  else if (e.role === 'tool') {
+    el.innerHTML = TOOL
+    el.append(Object.assign(document.createElement('span'), { textContent: e.text }))
+  } else el.textContent = e.text
+  return el
+}
+
+function renderChat(state: ChatState): void {
+  const nearBottom = chatLog.scrollHeight - chatLog.scrollTop - chatLog.clientHeight < 60
+  chatBusy = state.busy
+  chatLog.replaceChildren()
+  if (state.unavailable) {
+    chatLog.append(Object.assign(document.createElement('div'), { className: 'chat-empty', textContent: state.unavailable }))
+  } else if (!state.entries.length) {
+    const empty = Object.assign(document.createElement('div'), { className: 'chat-empty' })
+    empty.append(
+      Object.assign(document.createElement('p'), { textContent: 'Ask Claude about this page, or to do something for you in the browser.' }),
+    )
+    const chips = Object.assign(document.createElement('div'), { className: 'chips' })
+    for (const s of SUGGESTIONS) {
+      const chip = Object.assign(document.createElement('button'), { type: 'button', className: 'chip', textContent: s })
+      chip.onclick = () => api.chat('send', s)
+      chips.append(chip)
+    }
+    empty.append(chips)
+    chatLog.append(empty)
+  }
+  for (const e of state.entries) chatLog.append(chatEntry(e))
+  if (state.busy) {
+    const working = Object.assign(document.createElement('div'), { className: 'msg working' })
+    working.append(document.createElement('i'), document.createElement('i'), document.createElement('i'))
+    chatLog.append(working)
+  }
+  chatForm.hidden = !!state.unavailable
+  chatSend.innerHTML = state.busy ? STOP : SEND
+  chatSend.classList.toggle('stop', state.busy)
+  chatSend.setAttribute('aria-label', state.busy ? 'Stop' : 'Send')
+  if (nearBottom || state.busy) chatLog.scrollTop = chatLog.scrollHeight
+}
+
+function fitInput(): void {
+  chatInput.style.height = 'auto'
+  chatInput.style.height = `${Math.min(chatInput.scrollHeight, 140)}px`
+}
+
+api.onShowChat(({ state, x, y, incognito }) => {
+  setIncognito(incognito)
+  closeFrom(0)
+  settingsEl.hidden = true
+  document.body.classList.remove('settings-open')
+  chatEl.style.right = `${Math.max(8, window.innerWidth - x)}px`
+  chatEl.style.top = `${y + 8}px`
+  chatEl.hidden = false
+  renderChat(state)
+  chatLog.scrollTop = chatLog.scrollHeight
+  chatInput.focus()
+})
+api.onUpdateChat((state) => {
+  if (!chatEl.hidden) renderChat(state)
+})
+
+chatForm.addEventListener('submit', (e) => {
+  e.preventDefault()
+  if (chatBusy) return api.chat('stop')
+  const text = chatInput.value.trim()
+  if (!text) return
+  api.chat('send', text)
+  chatInput.value = ''
+  fitInput()
+})
+chatInput.addEventListener('input', fitInput)
+chatInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey && !e.isComposing) {
+    e.preventDefault()
+    if (!chatBusy) chatForm.requestSubmit()
+  }
+})
+$('chat-new').onclick = () => {
+  api.chat('new')
+  chatInput.focus()
+}
+$('chat-close').onclick = () => closeAll()

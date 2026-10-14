@@ -13,6 +13,7 @@ import { BookmarkUi } from './bookmark-ui'
 import { CHROME_WEB_STORE_URL, LASTPASS_URL, updateAllExtensions } from './extensions'
 import { diagnosticsText } from './extension-apis'
 import { connectClaude, type ConnectResult } from './claude-connect'
+import { ClaudeChat } from './claude-chat'
 import { toNavigableURL } from './url'
 
 const REPO_URL = 'https://github.com/trendlinepros-afk/web-browser'
@@ -35,6 +36,10 @@ const SLEEP_OPTIONS: [string, number][] = [
 
 export class Menus {
   readonly bookmarkUi: BookmarkUi
+  private readonly chat = new ClaudeChat(async () => {
+    if (!this.mcp.running) await this.setMcpEnabled(true)
+  })
+  private readonly chatWindows = new Set<number>()
 
   constructor(
     private readonly browser: Browser,
@@ -45,6 +50,7 @@ export class Menus {
     browser.onShowTabMenu = (w, tab, x, y) => this.showTabMenu(w, tab, x, y)
     browser.onShowShieldMenu = (w, x, y) => this.showShieldMenu(w, x, y)
     browser.onShowGroupMenu = (w, groupId, x, y) => this.showGroupMenu(w, groupId, x, y)
+    browser.onOpenChat = (w, x, y) => this.openChat(w, x, y)
     this.bookmarkUi = new BookmarkUi(browser)
     browser.onBookmarkCommand = (w, name, args) => this.bookmarkUi.handle(w, name, args)
   }
@@ -86,6 +92,7 @@ export class Menus {
           { label: 'Bookmark This Page', accelerator: 'CmdOrCtrl+D', click: this.withWindow((w) => this.bookmarkUi.bookmarkActiveTab(w)) },
           { label: 'Show Bookmarks Bar', accelerator: 'CmdOrCtrl+Shift+B', click: () => this.bookmarkUi.toggleBar() },
           { label: 'Settings', accelerator: 'CmdOrCtrl+,', click: this.withWindow((w) => this.openSettings(w)) },
+          { label: 'Chat with Claude', accelerator: 'CmdOrCtrl+Shift+K', click: this.withWindow((w) => this.openChat(w)) },
           { label: 'Clear Browsing Data', accelerator: 'CmdOrCtrl+Shift+Delete', click: this.withWindow((w) => this.openSettings(w, 'clear')) },
           { type: 'separator' },
           { label: 'Open Location', accelerator: 'CmdOrCtrl+L', click: this.withWindow((w) => w.focusAddressBar()) },
@@ -687,6 +694,25 @@ export class Menus {
       },
     ]
     w.popup.menu(template, x, y)
+  }
+
+  /** The Claude button's chat panel. (x, y) is the button's bottom-right corner. */
+  openChat(w: BrowserWindowController, x?: number, y?: number): void {
+    if (w.incognito) return
+    const [width] = w.win.getContentSize()
+    w.popup.onChat = (op, text) => {
+      if (op === 'send' && text) void this.chat.send(w, text)
+      else if (op === 'stop') this.chat.stop(w)
+      else if (op === 'new') this.chat.newChat(w)
+    }
+    if (!this.chatWindows.has(w.id)) {
+      this.chatWindows.add(w.id)
+      w.win.once('closed', () => {
+        this.chat.forget(w.id)
+        this.chatWindows.delete(w.id)
+      })
+    }
+    this.chat.open(w, x ?? width - 52, y ?? 80)
   }
 
   private tabGroupItems(w: BrowserWindowController, tab: Tab): MenuItemConstructorOptions[] {

@@ -15,6 +15,7 @@ const api: UiApi = {
   navigate: (id, input) => send('navigate', id, input),
   goBack: (id) => send('goBack', id),
   goHome: (id) => send('goHome', id),
+  openChat: (x, y) => send('openChat', x, y),
   moveTab: (id, beforeId, groupId) => send('moveTab', id, beforeId, groupId),
   moveGroup: (groupId, beforeId) => send('moveGroup', groupId, beforeId),
   showGroupMenu: (groupId, x, y) => send('showGroupMenu', groupId, x, y),

@@ -84,6 +84,8 @@ export interface UiApi {
   navigate(tabId: number, input: string): void
   goBack(tabId: number): void
   goHome(tabId: number): void
+  /** Opens the Claude chat panel under the Claude button (its right edge and bottom). */
+  openChat(x: number, y: number): void
   /** Drag and drop in the tab strip: put the tab before another (null: at the end), in a group or none. */
   moveTab(tabId: number, beforeTabId: number | null, groupId: number | null): void
   moveGroup(groupId: number, beforeTabId: number | null): void
@@ -175,4 +177,18 @@ export interface SettingsModel {
   sections: SettingsSection[]
   /** Section to scroll to when opening. */
   focus?: string
+}
+
+/** One line in the Claude chat panel. `tool` lines describe what Claude did in the browser. */
+export interface ChatEntry {
+  role: 'user' | 'assistant' | 'tool' | 'error'
+  text: string
+}
+
+export interface ChatState {
+  entries: ChatEntry[]
+  /** Claude is working on a reply. */
+  busy: boolean
+  /** Why chat can't be used (e.g. Claude Code isn't installed), or null when it can. */
+  unavailable: string | null
 }

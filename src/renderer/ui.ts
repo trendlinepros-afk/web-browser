@@ -45,7 +45,7 @@ const reloadBtn = $<HTMLButtonElement>('reload')
 const homeBtn = $<HTMLButtonElement>('home')
 const menuBtn = $<HTMLButtonElement>('menu')
 const newTabBtn = $<HTMLButtonElement>('new-tab')
-const mcpBadge = $<HTMLSpanElement>('mcp-badge')
+const mcpBadge = $<HTMLButtonElement>('mcp-badge')
 const shieldBtn = $<HTMLButtonElement>('shield')
 const starBtn = $<HTMLButtonElement>('star')
 const bookmarksBar = $<HTMLDivElement>('bookmarks-bar')
@@ -243,7 +243,9 @@ function render(): void {
   reloadBtn.title = tab?.loading ? 'Stop loading' : 'Reload (Ctrl+R)'
   if (!editing) address.value = displayURL(tab?.url ?? '')
   renderAddressDisplay(tab?.url ?? '')
-  mcpBadge.hidden = !state.mcpEnabled
+  // Chat with Claude; the dot glows while Claude is connected to this browser.
+  mcpBadge.hidden = state.incognito
+  mcpBadge.classList.toggle('off', !state.mcpEnabled)
   if (state.accent) document.body.style.setProperty('--sys-accent', state.accent)
   document.body.classList.toggle('has-accent', !!state.accent)
   renderShield(tab)
@@ -472,6 +474,10 @@ homeBtn.onclick = () => state?.activeTabId && api.goHome(state.activeTabId)
 shieldBtn.onclick = () => {
   const r = shieldBtn.getBoundingClientRect()
   api.showShieldMenu(r.left, r.bottom)
+}
+mcpBadge.onclick = () => {
+  const r = mcpBadge.getBoundingClientRect()
+  api.openChat(r.right, r.bottom)
 }
 menuBtn.onclick = () => {
   const r = menuBtn.getBoundingClientRect()
