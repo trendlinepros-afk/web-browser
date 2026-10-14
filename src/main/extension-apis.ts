@@ -189,16 +189,22 @@ export class ExtensionApis {
     this.saveAlarms()
     this.schedule()
     for (const [id, alarm] of due) {
-      try {
-        // Wake the extension's background worker if Chrome put it to sleep, then deliver.
-        diag(`[${id.slice(0, 6)}] alarm "${alarm.name}" due`)
-        const worker = await this.ses.serviceWorkers.startWorkerForScope(`chrome-extension://${id}/`)
-        this.wire(worker)
-        worker.send('zirtola-alarm', alarm)
-        diag(`[${id.slice(0, 6)}] alarm "${alarm.name}" delivered`)
-      } catch (err) {
-        diag(`[${id.slice(0, 6)}] couldn't deliver alarm "${alarm.name}": ${err instanceof Error ? err.message : String(err)}`)
-      }
+      diag(`[${id.slice(0, 6)}] alarm "${alarm.name}" due`)
+      void this.deliver(id, alarm, 1)
+    }
+  }
+
+  /** Wakes the extension's background worker if Chrome put it to sleep, then delivers the alarm. */
+  private async deliver(id: string, alarm: Alarm, attempt: number): Promise<void> {
+    try {
+      const worker = await this.ses.serviceWorkers.startWorkerForScope(`chrome-extension://${id}/`)
+      this.wire(worker)
+      worker.send('zirtola-alarm', alarm)
+      diag(`[${id.slice(0, 6)}] alarm "${alarm.name}" delivered`)
+    } catch (err) {
+      diag(`[${id.slice(0, 6)}] couldn't deliver alarm "${alarm.name}" (try ${attempt}): ${err instanceof Error ? err.message : String(err)}`)
+      // Alarms that came due while Zirtola was starting arrive before the extension has loaded.
+      if (attempt < 6) setTimeout(() => void this.deliver(id, alarm, attempt + 1), 5_000).unref()
     }
   }
 

@@ -104,9 +104,22 @@ if (isExtensionWorker) {
         onSignInChanged: makeEvent<() => void>().event,
       }
 
+      // Zirtola has no side panel yet. Extensions that configure one at startup get a harmless
+      // stand-in instead of crashing on `chrome.sidePanel` being undefined.
+      const sidePanel = {
+        setOptions: (...args: unknown[]) => withCallback(args, Promise.resolve()),
+        getOptions: (...args: unknown[]) => withCallback(args, Promise.resolve({ enabled: false })),
+        setPanelBehavior: (...args: unknown[]) => withCallback(args, Promise.resolve()),
+        getPanelBehavior: (...args: unknown[]) => withCallback(args, Promise.resolve({ openPanelOnActionClick: false })),
+        open: (...args: unknown[]) => withCallback(args, Promise.reject(new Error('Side panels are not supported in Zirtola.'))),
+        onOpened: makeEvent<() => void>().event,
+        onClosed: makeEvent<() => void>().event,
+      }
+
       try {
         Object.defineProperty(chrome, 'alarms', { value: alarms, configurable: true, enumerable: true })
         Object.defineProperty(chrome, 'identity', { value: identity, configurable: true, enumerable: true })
+        if (!('sidePanel' in chrome)) Object.defineProperty(chrome, 'sidePanel', { value: sidePanel, configurable: true, enumerable: true })
       } catch (err) {
         console.error('Zirtola extension APIs failed to install', err)
       }
