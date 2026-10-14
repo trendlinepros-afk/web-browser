@@ -55,7 +55,7 @@ export class PopupHost {
   onSetting: ((key: string, value: unknown) => void) | null = null
   onAction: ((name: string) => void) | null = null
   /** Chat panel: 'send' (with text), 'stop' or 'new'. */
-  onChat: ((op: 'send' | 'stop' | 'new', text?: string) => void) | null = null
+  onChat: ((op: 'send' | 'stop' | 'new' | 'login', text?: string) => void) | null = null
 
   constructor(private readonly w: BrowserWindowController) {}
 
@@ -66,7 +66,7 @@ export class PopupHost {
     ipcMain.on('overlay:setting', (e, key: string, value: unknown) => host(e)?.onSetting?.(key, value))
     ipcMain.on('overlay:action', (e, name: string) => host(e)?.onAction?.(name))
     ipcMain.on('overlay:answer', (e, index: number) => host(e)?.answer(index))
-    ipcMain.on('overlay:chat', (e, op: 'send' | 'stop' | 'new', text?: string) => host(e)?.onChat?.(op, typeof text === 'string' ? text : undefined))
+    ipcMain.on('overlay:chat', (e, op: 'send' | 'stop' | 'new' | 'login', text?: string) => host(e)?.onChat?.(op, typeof text === 'string' ? text : undefined))
   }
 
   get isOpen(): boolean {

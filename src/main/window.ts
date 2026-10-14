@@ -1,4 +1,4 @@
-import { BrowserWindow, nativeTheme, type HandlerDetails, type Session, type WebContentsView, type WindowOpenHandlerResponse } from 'electron'
+import { app, BrowserWindow, nativeTheme, type HandlerDetails, type Session, type WebContentsView, type WindowOpenHandlerResponse } from 'electron'
 import path from 'node:path'
 import { GROUP_COLORS, type BookmarkBarState, type GroupColor, type TabGroupInfo, type WindowState } from '../shared/types'
 import { BookmarkStore } from './bookmarks'
@@ -84,7 +84,12 @@ export class BrowserWindowController {
     if (opts.restore?.maximized) this.win.maximize()
 
     this.win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'), {
-      query: { incognito: opts.incognito ? '1' : '0', platform: uiPlatform, frame: integratedTitleBar ? 'integrated' : 'native' },
+      query: {
+        incognito: opts.incognito ? '1' : '0',
+        platform: uiPlatform,
+        frame: integratedTitleBar ? 'integrated' : 'native',
+        version: app.getVersion(),
+      },
     })
     this.win.once('ready-to-show', () => this.win.show())
     this.popup = new PopupHost(this)

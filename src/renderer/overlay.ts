@@ -14,7 +14,7 @@ interface OverlayApi {
   answer(index: number): void
   onShowChat(cb: (m: { state: ChatState; x: number; y: number; incognito?: boolean }) => void): void
   onUpdateChat(cb: (s: ChatState) => void): void
-  chat(op: 'send' | 'stop' | 'new', text?: string): void
+  chat(op: 'send' | 'stop' | 'new' | 'login', text?: string): void
 }
 
 const api = (window as unknown as { overlay: OverlayApi }).overlay
@@ -528,6 +528,11 @@ function chatEntry(e: ChatEntry): HTMLElement {
     el.innerHTML = TOOL
     el.append(Object.assign(document.createElement('span'), { textContent: e.text }))
   } else el.textContent = e.text
+  if (e.action === 'login') {
+    const btn = Object.assign(document.createElement('button'), { type: 'button', className: 'btn primary', textContent: 'Sign in to Claude' })
+    btn.onclick = () => api.chat('login')
+    el.append(btn)
+  }
   return el
 }
 

@@ -72,6 +72,9 @@ if (incognito) address.placeholder = 'Private: nothing you do here is saved'
 document.body.classList.add(`platform-${params.get('platform') ?? 'unknown'}`, `frame-${params.get('frame') ?? 'native'}`)
 document.body.classList.toggle('incognito', incognito)
 $('incognito-badge').hidden = !incognito
+const versionEl = $('app-version')
+versionEl.textContent = `v${params.get('version') ?? ''}`
+versionEl.title = `Zirtola ${params.get('version') ?? ''}`
 
 let state: WindowState | null = null
 /** True while the user is editing the address bar; we must not overwrite their typing. */

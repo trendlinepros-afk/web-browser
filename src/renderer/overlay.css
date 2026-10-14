@@ -876,3 +876,8 @@ button.icon:focus-visible {
   fill: currentColor;
   stroke: none;
 }
+
+.msg.error .btn {
+  display: block;
+  margin-top: 8px;
+}

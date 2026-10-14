@@ -70,6 +70,25 @@ export function spawnClaude(args: string[], opts: SpawnOptions = {}): ChildProce
   return spawn(bin, args, { ...opts, windowsHide: true })
 }
 
+/**
+ * Signs in to Claude Code (`claude auth login`). It opens the browser for the Anthropic sign-in page;
+ * on Windows it runs in a console window so any prompts it shows are visible.
+ */
+export function signInClaude(): void {
+  const bin = findClaude()
+  if (!bin) return
+  if (process.platform === 'win32') {
+    // `cmd /k ""C:\path\claude.exe" auth login"`: the outer quotes are stripped, keeping the path's.
+    spawn('cmd.exe', ['/d', '/c', 'start', '"Sign in to Claude"', 'cmd.exe', '/k', `""${bin}" auth login"`], {
+      detached: true,
+      stdio: 'ignore',
+      windowsVerbatimArguments: true,
+    }).unref()
+  } else {
+    spawn(bin, ['auth', 'login'], { detached: true, stdio: 'ignore' }).unref()
+  }
+}
+
 /** Runs `claude` to completion; rejects with its error output on failure. */
 export function runClaude(args: string[], timeoutMs = 30_000): Promise<string> {
   return new Promise((resolve, reject) => {

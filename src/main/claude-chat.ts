@@ -4,7 +4,7 @@ import fs from 'node:fs'
 import path from 'node:path'
 import type { ChatEntry, ChatState } from '../shared/types'
 import type { BrowserWindowController } from './window'
-import { findClaude, killTree, spawnClaude } from './claude-cli'
+import { findClaude, killTree, signInClaude, spawnClaude } from './claude-cli'
 import { serverEntry } from './claude-connect'
 import { flushSettings } from './settings'
 
@@ -37,6 +37,18 @@ const TOOL_LABELS: Record<string, (i: Record<string, unknown>) => string> = {
   scroll: () => 'Scrolling',
   wait_for: () => 'Waiting for the page',
   evaluate: () => 'Running a script on the page',
+}
+
+/** Sign-in problems get a plain explanation and a "Sign in to Claude" button. */
+function errorEntry(message: string): ChatEntry {
+  if (/authenticat|oauth|log ?in|logged out|401|credential|api key/i.test(message)) {
+    return {
+      role: 'error',
+      action: 'login',
+      text: `Claude Code on this computer needs you to sign in again (${message.replace(/\.$/, '')}). It's using ${findClaude() ?? 'claude'}.`,
+    }
+  }
+  return { role: 'error', text: message }
 }
 
 function short(v: unknown): string {
@@ -103,6 +115,14 @@ export class ClaudeChat {
   newChat(w: BrowserWindowController): void {
     this.stop(w)
     this.conversations.delete(w.id)
+    this.push(w, true)
+  }
+
+  /** The chat's "Sign in to Claude" button. */
+  signIn(w: BrowserWindowController): void {
+    signInClaude()
+    const c = this.conv(w)
+    c.entries.push({ role: 'tool', text: 'Opened Claude sign-in. Finish signing in, then send your message again.' })
     this.push(w, true)
   }
 
@@ -196,7 +216,7 @@ export class ClaudeChat {
       if (c.proc !== proc) return
       c.proc = null
       c.live = null
-      if (failure) c.entries.push({ role: 'error', text: failure })
+      if (failure) c.entries.push(errorEntry(failure))
       this.push(w, true)
     }
     proc.on('error', (err) => done(`Couldn't start Claude Code: ${err.message}`))
@@ -249,7 +269,10 @@ export class ClaudeChat {
       case 'result': {
         if (ev.is_error) {
           const msg = typeof ev.result === 'string' && ev.result ? ev.result : String(ev.subtype ?? 'error')
-          c.entries.push({ role: 'error', text: msg })
+          // Claude Code also sends the error as a reply; show it once, as an error.
+          const last = c.entries[c.entries.length - 1]
+          if (last?.role === 'assistant' && last.text.trim() === msg.trim()) c.entries.pop()
+          c.entries.push(errorEntry(msg))
         }
         return true
       }

@@ -16,5 +16,5 @@ contextBridge.exposeInMainWorld('overlay', {
   action: (name: string) => ipcRenderer.send('overlay:action', name),
   onShowChat: (cb: (m: { state: ChatState; x: number; y: number; incognito?: boolean }) => void) => ipcRenderer.on('overlay:show-chat', (_e, m) => cb(m)),
   onUpdateChat: (cb: (s: ChatState) => void) => ipcRenderer.on('overlay:update-chat', (_e, s) => cb(s)),
-  chat: (op: 'send' | 'stop' | 'new', text?: string) => ipcRenderer.send('overlay:chat', op, text),
+  chat: (op: 'send' | 'stop' | 'new' | 'login', text?: string) => ipcRenderer.send('overlay:chat', op, text),
 })

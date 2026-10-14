@@ -183,6 +183,8 @@ export interface SettingsModel {
 export interface ChatEntry {
   role: 'user' | 'assistant' | 'tool' | 'error'
   text: string
+  /** A button shown with an error, e.g. signing in to Claude again. */
+  action?: 'login'
 }
 
 export interface ChatState {

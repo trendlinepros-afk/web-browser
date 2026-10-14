@@ -704,6 +704,7 @@ export class Menus {
       if (op === 'send' && text) void this.chat.send(w, text)
       else if (op === 'stop') this.chat.stop(w)
       else if (op === 'new') this.chat.newChat(w)
+      else if (op === 'login') this.chat.signIn(w)
     }
     if (!this.chatWindows.has(w.id)) {
       this.chatWindows.add(w.id)
