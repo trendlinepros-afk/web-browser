@@ -102,7 +102,9 @@ svg {
 
 .tab {
   position: relative;
-  flex: 0 1 210px;
+  /* A real width (not just flex-basis) so the strip sizes to full-width tabs; they shrink when crowded. */
+  flex: 0 1 auto;
+  width: 210px;
   min-width: 40px;
   height: 30px;
   display: flex;
@@ -129,6 +131,7 @@ svg {
 }
 .tab.pinned {
   flex: 0 0 40px;
+  width: 40px;
   padding: 0;
   justify-content: center;
 }

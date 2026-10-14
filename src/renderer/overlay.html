@@ -26,10 +26,14 @@
       </div>
       <div class="main">
         <header>
-          <div>
+          <div class="heading">
             <h1 id="settings-title"></h1>
             <p id="settings-subtitle"></p>
           </div>
+          <label id="settings-search">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6"/><path d="m15 15 5 5"/></svg>
+            <input id="settings-query" type="search" placeholder="Search settings" spellcheck="false" aria-label="Search settings" />
+          </label>
           <button id="settings-close" class="icon" aria-label="Close settings"></button>
         </header>
         <div id="settings-body"></div>

@@ -1,5 +1,5 @@
 // Draws Zirtola's menus and settings panel above the page. Plain DOM; driven by the main process.
-import type { PopupItem, PopupModifiers, PromptSpec, SettingsControl, SettingsModel } from '../shared/types'
+import type { PopupItem, PopupModifiers, PromptSpec, SettingsControl, SettingsModel, SettingsSection } from '../shared/types'
 
 interface OverlayApi {
   onShowMenu(cb: (m: { items: PopupItem[]; x: number; y: number; align: 'left' | 'right'; incognito?: boolean }) => void): void
@@ -348,9 +348,46 @@ const SECTION_ICONS: Record<string, string> = {
 let currentSection = ''
 let lastModel: SettingsModel | null = null
 
+const query = $<HTMLInputElement>('settings-query')
+
+/** Words a control can be found by: its label, description, value and option names. */
+function searchText(section: SettingsSection, c: SettingsControl): string {
+  const parts = [section.title, c.label, 'description' in c ? c.description : '', c.kind === 'info' ? c.value : '']
+  if (c.kind === 'select') parts.push(...c.options.map((o) => o.label))
+  return parts.join(' ').toLowerCase()
+}
+
+function renderSearch(model: SettingsModel, text: string): void {
+  const words = text.toLowerCase().split(/\s+/).filter(Boolean)
+  let count = 0
+  body.replaceChildren()
+  for (const section of model.sections) {
+    const matches = section.controls.filter((c) => {
+      const hay = searchText(section, c)
+      return words.every((w) => hay.includes(w))
+    })
+    if (!matches.length) continue
+    count += matches.length
+    const heading = Object.assign(document.createElement('button'), { type: 'button', className: 'result-section', textContent: section.title })
+    heading.title = `Open ${section.title}`
+    heading.onclick = () => {
+      query.value = ''
+      currentSection = section.id
+      renderSettings(model, false)
+    }
+    const card = Object.assign(document.createElement('div'), { className: 'card' })
+    for (const c of matches) card.append(control(c))
+    body.append(heading, card)
+  }
+  $('settings-title').textContent = 'Search'
+  $('settings-subtitle').textContent = count ? `${count} setting${count === 1 ? '' : 's'} match “${text.trim()}”` : `Nothing matches “${text.trim()}”`
+  if (!count) body.append(Object.assign(document.createElement('div'), { className: 'no-results', textContent: 'Try another word, like “sleep”, “cookies” or “homepage”.' }))
+}
+
 function renderSettings(model: SettingsModel, keepScroll: boolean): void {
   lastModel = model
   const scroll = body.scrollTop
+  const searching = query.value.trim() !== ''
   if (!model.sections.some((s) => s.id === currentSection)) currentSection = model.sections[0]?.id ?? ''
   nav.replaceChildren()
   for (const section of model.sections) {
@@ -358,14 +395,20 @@ function renderSettings(model: SettingsModel, keepScroll: boolean): void {
     item.innerHTML = `<svg viewBox="0 0 24 24">${SECTION_ICONS[section.id] ?? ''}</svg>`
     item.append(Object.assign(document.createElement('span'), { textContent: section.title }))
     item.title = section.title
-    item.classList.toggle('current', section.id === currentSection)
-    if (section.id === currentSection) item.setAttribute('aria-current', 'page')
+    item.classList.toggle('current', !searching && section.id === currentSection)
+    if (!searching && section.id === currentSection) item.setAttribute('aria-current', 'page')
     item.onclick = () => {
-      if (currentSection === section.id) return
+      if (currentSection === section.id && !query.value) return
+      query.value = ''
       currentSection = section.id
       renderSettings(lastModel!, false)
     }
     nav.append(item)
+  }
+  if (searching) {
+    renderSearch(model, query.value)
+    body.scrollTop = keepScroll ? scroll : 0
+    return
   }
   const section = model.sections.find((s) => s.id === currentSection)
   $('settings-title').textContent = section?.title ?? ''
@@ -383,10 +426,11 @@ api.onShowSettings((model) => {
   setIncognito((model as SettingsModel & { incognito?: boolean }).incognito)
   closeFrom(0)
   if (model.focus) currentSection = model.focus
+  query.value = ''
   renderSettings(model, false)
   settingsEl.hidden = false
   document.body.classList.add('settings-open')
-  ;(nav.querySelector('.current') as HTMLElement | null)?.focus()
+  query.focus()
 })
 api.onUpdateSettings((model) => renderSettings(model, true))
 $('settings-close').onclick = () => closeAll()
@@ -400,4 +444,22 @@ nav.addEventListener('keydown', (e) => {
   const next = items[(i + (e.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length]
   next.click()
   nav.querySelectorAll<HTMLButtonElement>('.nav-item')[items.indexOf(next)]?.focus()
+})
+
+query.addEventListener('input', () => lastModel && renderSettings(lastModel, false))
+query.addEventListener('keydown', (e) => {
+  // Esc clears the search first; a second Esc closes Settings.
+  if (e.key === 'Escape' && query.value) {
+    e.stopPropagation()
+    query.value = ''
+    if (lastModel) renderSettings(lastModel, false)
+  }
+})
+// Ctrl+F (Cmd+F) jumps to the search box.
+document.addEventListener('keydown', (e) => {
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'f' && !settingsEl.hidden) {
+    e.preventDefault()
+    query.focus()
+    query.select()
+  }
 })
