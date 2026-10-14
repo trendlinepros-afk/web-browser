@@ -1,5 +1,6 @@
 import { app, BrowserWindow, dialog } from 'electron'
 import type { AppUpdater } from 'electron-updater'
+import type { PromptSpec } from '../shared/types'
 import { APP_NAME } from './brand'
 
 /**
@@ -13,6 +14,14 @@ let busy = false
 let downloadedVersion: string | null = null
 
 let updater: AppUpdater | null = null
+/** The "Restart now / Later" question while it's on screen, so it's never asked twice at once. */
+let restartOffer: Promise<void> | null = null
+
+/** Shows a Zirtola-styled prompt in the current browser window (set up by main.ts). */
+let promptHost: (() => ((spec: PromptSpec) => Promise<number>) | null) | null = null
+export function setUpdatePromptHost(host: () => ((spec: PromptSpec) => Promise<number>) | null): void {
+  promptHost = host
+}
 
 /** Loaded on first use so the updater stays out of startup. */
 function getUpdater(): AppUpdater {
@@ -29,6 +38,18 @@ function parent(): BrowserWindow | undefined {
 }
 
 async function message(opts: Electron.MessageBoxOptions): Promise<number> {
+  const prompt = promptHost?.()
+  if (prompt) {
+    const buttons = opts.buttons ?? ['OK']
+    return prompt({
+      kind: opts.type === 'error' || opts.type === 'warning' ? 'warning' : 'info',
+      title: opts.message,
+      message: opts.detail ?? '',
+      buttons,
+      defaultId: opts.defaultId ?? 0,
+      cancelId: opts.cancelId ?? buttons.length - 1,
+    })
+  }
   const win = parent()
   const result = win ? await dialog.showMessageBox(win, opts) : await dialog.showMessageBox(opts)
   return result.response
@@ -38,7 +59,12 @@ function setProgress(fraction: number): void {
   for (const w of BrowserWindow.getAllWindows()) if (!w.isDestroyed()) w.setProgressBar(fraction)
 }
 
-async function offerRestart(version: string): Promise<void> {
+function offerRestart(version: string): Promise<void> {
+  restartOffer ??= askToRestart(version).finally(() => (restartOffer = null))
+  return restartOffer
+}
+
+async function askToRestart(version: string): Promise<void> {
   const choice = await message({
     type: 'info',
     buttons: ['Restart now', 'Later'],

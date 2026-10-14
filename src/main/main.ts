@@ -7,7 +7,7 @@ import { setupExtensions } from './extensions'
 import { TabSleeper } from './tab-sleeper'
 import { BrowserMcpServer } from './mcp-server'
 import { Menus } from './menu'
-import { checkForUpdates } from './updater'
+import { checkForUpdates, setUpdatePromptHost } from './updater'
 import { offerDefaultBrowserOnce } from './default-browser'
 import { flushSettings, getSettings } from './settings'
 import { applyCommandLineHardening } from './privacy'
@@ -97,6 +97,10 @@ function main(): void {
     }
     const first = browser.lastFocused
     if (first) setTimeout(() => offerDefaultBrowserOnce(first.win).catch(() => {}), 3000)
+    setUpdatePromptHost(() => {
+      const w = browser?.lastFocused
+      return w && !w.win.isDestroyed() ? (spec) => w.popup.prompt(spec) : null
+    })
     if (getSettings().checkForUpdatesOnStartup) {
       setTimeout(() => checkForUpdates({ interactive: false }), 10_000)
     }
