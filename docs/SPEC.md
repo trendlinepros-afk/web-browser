@@ -331,8 +331,25 @@ and `runtime` messaging all work.
 
 ## 10. Security notes
 - Web content: sandboxed and context-isolated, with no Node.js access. The UI preload exposes only named functions.
+- Zirtola's own pages (tab strip/toolbar, menus and settings overlay, dialogs) can't be navigated away from or open
+  windows (`hardening.ts`), so a link or file dropped on the toolbar can't load a web page next to the UI's control API.
+  `<webview>` is blocked everywhere.
 - Permissions (camera, mic, location, notifications, MIDI…) prompt per site. Answers are remembered for the session.
-- MCP is localhost-only, off by default, needs a bearer token, keeps `evaluate` off by default, and can't see incognito tabs.
+  Extensions get what they need silently except camera/mic, location, screen, clipboard reading and similar, which
+  they must ask for (the prompt names the extension).
+- Pop-up windows have no address bar, so their title always starts with the real host, which the page can't change.
+- MCP is localhost-only, off by default, needs a bearer token (compared in constant time), rejects requests that
+  carry an Origin or a non-local Host (drive-by pages, DNS rebinding), caps bodies at 5 MB, keeps `evaluate` off by
+  default, and can't see incognito tabs. Its tools only open, read or act on web pages (http/https/data/blank):
+  never file://, chrome-extension:// (a password manager's vault) or view-source:, so a prompt-injected page can't
+  get Claude to read local files or extension pages. The in-browser chat uses the same tools and nothing else.
+- Electron fuses (electron-builder.yml): cookies are encrypted at rest (DPAPI on Windows; existing plaintext cookies
+  stay readable and are encrypted when rewritten); NODE_OPTIONS and --inspect are disabled; the app only loads from
+  app.asar. RunAsNode stays on because Claude starts Zirtola.exe as the MCP bridge.
+- Pen test 2026-10-15: findings and fixes above, plus: per-origin permission keys were wrong for chrome-extension://
+  and file:// pages (Node reports their origin as "null"), which hung extension permission requests; fixed.
+  Not yet done: code signing (updates are verified by SHA-512 from GitHub over HTTPS, but installers are unsigned),
+  asar integrity validation, and loading the UI from a custom protocol instead of file://.
 - Updates download over HTTPS from GitHub Releases. `electron-updater` checks the SHA-512 from `latest.yml`.
 - Chromium security fixes arrive through Electron releases. Dependabot raises them daily; releasing promptly is the
   most important ongoing security task.

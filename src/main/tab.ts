@@ -266,5 +266,27 @@ export class Tab {
       changed()
     })
     wc.setWindowOpenHandler((details) => this.window.handleWindowOpen(this, details))
+    // Pop-up windows (sign-in windows and the like) have no address bar, so their title always
+    // starts with the real site, which the page can't change: a pop-up can't pose as another site.
+    wc.on('did-create-window', (win) => {
+      const host = () => {
+        try {
+          return new URL(win.webContents.getURL()).host || win.webContents.getURL()
+        } catch {
+          return ''
+        }
+      }
+      const update = () => {
+        if (win.isDestroyed()) return
+        const title = win.webContents.getTitle()
+        win.setTitle(host() ? `${host()} — ${title && title !== win.webContents.getURL() ? title : ''}`.replace(/ — $/, '') : title)
+      }
+      win.on('page-title-updated', (e) => {
+        e.preventDefault()
+        update()
+      })
+      win.webContents.on('did-navigate', update)
+      update()
+    })
   }
 }

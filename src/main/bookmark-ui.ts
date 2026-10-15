@@ -6,6 +6,7 @@ import type { Browser } from './browser'
 import type { BrowserWindowController } from './window'
 import { BAR, OTHER, type BookmarkStore, type BookmarkNode } from './bookmarks'
 import { exportBookmarksHtml, findFirefoxProfiles, mergeImport, parseBookmarksHtml, readFirefoxBookmarks, type ImportResult } from './bookmark-import'
+import { denyWindowOpen } from './hardening'
 import { updateSettings, getSettings } from './settings'
 
 /** Bookmark bar interactions, menus, the edit dialog, and import/export. */
@@ -273,6 +274,7 @@ export class BookmarkUi {
     const wcId = dlg.webContents.id
     this.editors.set(wcId, { id, isNew: !!opts.isNew })
     dlg.on('closed', () => this.editors.delete(wcId))
+    denyWindowOpen(dlg.webContents)
     dlg.loadFile(path.join(__dirname, '..', 'renderer', 'bookmark-editor.html'))
     dlg.once('ready-to-show', () => dlg.show())
   }

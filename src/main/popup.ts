@@ -3,6 +3,7 @@ import path from 'node:path'
 import type { ChatState, PopupItem, PopupModifiers, PromptSpec, SettingsModel } from '../shared/types'
 import type { BrowserWindowController } from './window'
 import { integratedTitleBar, uiPlatform } from './theme'
+import { denyWindowOpen } from './hardening'
 
 export type PopupTemplate = (MenuItemConstructorOptions | MenuItem)[]
 
@@ -85,6 +86,7 @@ export class PopupHost {
       },
     })
     view.setBackgroundColor('#00000000')
+    denyWindowOpen(view.webContents)
     view.setVisible(false)
     PopupHost.view = view
     PopupHost.loaded = view.webContents

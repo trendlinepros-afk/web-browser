@@ -112,6 +112,17 @@ export class BrowserMcpServer {
     return this.touch(tab)
   }
 
+  /**
+   * A tab Claude may read or act in: only web pages. Local files (file://), extension pages (a
+   * password manager's vault) and internal pages are off-limits, so a page that tricks Claude
+   * ("prompt injection") can't get it to read them and send them somewhere.
+   */
+  private webTab(id?: number): Tab {
+    const tab = this.tab(id)
+    if (tab.url && !isWebURL(tab.url)) throw new Error(`Tab ${tab.id} shows a ${new URL(tab.url).protocol.replace(':', '')} page, which Claude can't access. Only web pages are allowed.`)
+    return tab
+  }
+
   private touch(tab: Tab): Tab {
     const wasControlled = tab.controlled
     tab.lastControlledAt = Date.now()
@@ -150,7 +161,8 @@ export class BrowserMcpServer {
           t.incognito ? 'incognito' : '',
           t.pinned ? 'pinned' : '',
         ].filter(Boolean)
-        return `[${t.id}] ${t.title || '(untitled)'} — ${t.url || 'about:blank'}${flags.length ? ` (${flags.join(', ')})` : ''} window=${t.window.id}`
+        const shown = !t.url || isWebURL(t.url) ? `${t.title || '(untitled)'} — ${t.url || 'about:blank'}` : '(a local or extension page Claude can\'t access)'
+        return `[${t.id}] ${shown}${flags.length ? ` (${flags.join(', ')})` : ''} window=${t.window.id}`
       })
       return text(lines.join('\n') || 'No tabs open.')
     })
@@ -160,7 +172,7 @@ export class BrowserMcpServer {
       'Open a new tab and wait for it to load. Returns its tab id.',
       { url: z.string().describe('URL or search terms.'), background: z.boolean().optional() },
       async ({ url, background }) => {
-        const target = toNavigableURL(url, getSettings().searchEngine) ?? 'about:blank'
+        const target = webTarget(url)
         const tab = this.touch(this.browser.targetWindow().createTab({ background }))
         await auto.navigateAndWait(tab.wake(), target)
         return text(`Opened tab ${tab.id}: ${tab.title} — ${tab.url}`)
@@ -192,9 +204,7 @@ export class BrowserMcpServer {
         const tab = this.tab(tab_id)
         const wc = tab.wake()
         if (url) {
-          const target = toNavigableURL(url, getSettings().searchEngine)
-          if (!target) throw new Error('Empty URL.')
-          await auto.navigateAndWait(wc, target)
+          await auto.navigateAndWait(wc, webTarget(url))
         } else if (action === 'back') {
           wc.navigationHistory.goBack()
           await auto.settle(wc)
@@ -216,7 +226,7 @@ export class BrowserMcpServer {
       'Describe the page: title, URL, headings and the interactive elements with refs to use in click/type.',
       { tab_id: tabId },
       async ({ tab_id }) => {
-        const tab = this.tab(tab_id)
+        const tab = this.webTab(tab_id)
         return text(auto.formatSnapshot(await auto.snapshot(tab.wake())))
       },
     )
@@ -226,7 +236,7 @@ export class BrowserMcpServer {
       'Read the visible text of the page (paginated).',
       { tab_id: tabId, offset: z.number().int().min(0).optional(), limit: z.number().int().min(100).max(100_000).optional() },
       async ({ tab_id, offset = 0, limit = 20_000 }) => {
-        const tab = this.tab(tab_id)
+        const tab = this.webTab(tab_id)
         const { text: body, total } = await auto.readText(tab.wake(), offset, limit)
         const more = offset + body.length < total ? `\n\n[… ${total - offset - body.length} more characters; call again with offset=${offset + body.length}]` : ''
         return text(body + more)
@@ -234,7 +244,7 @@ export class BrowserMcpServer {
     )
 
     tool('click', 'Click an element by ref (from snapshot) or CSS selector.', { tab_id: tabId, ref, selector }, async ({ tab_id, ref, selector }) => {
-      const tab = this.tab(tab_id)
+      const tab = this.webTab(tab_id)
       return text(await auto.click(tab, tab.wake(), { ref, selector }))
     })
 
@@ -250,7 +260,7 @@ export class BrowserMcpServer {
         submit: z.boolean().optional().describe('Press Enter afterwards.'),
       },
       async ({ tab_id, ref, selector, text: value, clear = true, submit = false }) => {
-        const tab = this.tab(tab_id)
+        const tab = this.webTab(tab_id)
         const wc = tab.wake()
         await auto.type(wc, { ref, selector }, value, clear)
         if (submit) await auto.pressKey(wc, 'Enter')
@@ -263,7 +273,7 @@ export class BrowserMcpServer {
       'Press a key in the focused element, e.g. Enter, Tab, Escape, Backspace, Up, Down, PageDown, or a character.',
       { tab_id: tabId, key: z.string(), modifiers: z.array(z.enum(['shift', 'control', 'alt', 'meta'])).optional() },
       async ({ tab_id, key, modifiers }) => {
-        const tab = this.tab(tab_id)
+        const tab = this.webTab(tab_id)
         await auto.pressKey(tab.wake(), key, modifiers)
         return text(`Pressed ${[...(modifiers ?? []), key].join('+')}.`)
       },
@@ -274,7 +284,7 @@ export class BrowserMcpServer {
       'Scroll the page by a number of pixels (negative = up), or scroll an element into view.',
       { tab_id: tabId, dy: z.number().optional(), ref, selector },
       async ({ tab_id, dy = 600, ref, selector }) => {
-        const tab = this.tab(tab_id)
+        const tab = this.webTab(tab_id)
         return text(await auto.scroll(tab.wake(), dy, { ref, selector }))
       },
     )
@@ -284,7 +294,7 @@ export class BrowserMcpServer {
       'Take a screenshot of the tab (JPEG).',
       { tab_id: tabId },
       async ({ tab_id }) => {
-        const tab = this.tab(tab_id)
+        const tab = this.webTab(tab_id)
         let image = await tab.wake().capturePage(undefined, { stayHidden: true })
         if (image.isEmpty()) throw new Error('Screenshot was empty (tab may still be loading).')
         const { width } = image.getSize()
@@ -298,7 +308,7 @@ export class BrowserMcpServer {
       'Wait until a selector exists and/or text appears on the page, or (with neither) until loading finishes.',
       { tab_id: tabId, selector: z.string().optional(), text: z.string().optional(), timeout_ms: z.number().int().max(60_000).optional() },
       async ({ tab_id, selector: sel, text: needle, timeout_ms = 10_000 }) => {
-        const tab = this.tab(tab_id)
+        const tab = this.webTab(tab_id)
         const ok = await auto.waitFor(tab.wake(), { selector: sel, text: needle, timeoutMs: timeout_ms })
         return ok ? text('Condition met.') : { ...text(`Timed out after ${timeout_ms}ms.`), isError: true }
       },
@@ -310,7 +320,7 @@ export class BrowserMcpServer {
         'Run JavaScript in the page and return the JSON-serializable result.',
         { tab_id: tabId, code: z.string().describe('An expression or IIFE.') },
         async ({ tab_id, code }) => {
-          const tab = this.tab(tab_id)
+          const tab = this.webTab(tab_id)
           const result = await auto.evaluate(tab.wake(), code)
           return text(JSON.stringify(result, null, 2) ?? 'undefined')
         },
@@ -335,4 +345,16 @@ function readBody(req: http.IncomingMessage, max = 5 * 1024 * 1024): Promise<str
     req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')))
     req.on('error', reject)
   })
+}
+
+/** Web pages Claude may open and read: http(s), and blank/data pages. */
+function isWebURL(url: string): boolean {
+  return /^(https?:|about:blank|data:)/i.test(url)
+}
+
+function webTarget(input: string): string {
+  const target = toNavigableURL(input, getSettings().searchEngine)
+  if (!target) throw new Error('Empty URL.')
+  if (!isWebURL(target)) throw new Error(`Claude can only open web pages (http/https), not ${target.split(':')[0]}: addresses.`)
+  return target
 }

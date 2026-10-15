@@ -13,10 +13,12 @@ import { flushSettings, getSettings } from './settings'
 import { applyCommandLineHardening } from './privacy'
 import { migrateLegacyProfile } from './profile-migration'
 import { PopupHost } from './popup'
+import { installHardening } from './hardening'
 
 // ---- Process-wide tuning (must run before 'ready') ------------------------
 
 applyCommandLineHardening()
+installHardening()
 
 /**
  * Present a plain Chrome user agent. Electron's default ("… Electron/x AppName/y …") gets

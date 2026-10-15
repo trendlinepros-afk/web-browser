@@ -30,6 +30,14 @@ const ASK: Record<string, string> = {
   'window-management': 'manage windows on all your displays',
 }
 
+/**
+ * Extensions get what they need without prompts, except these, which they must ask for like any
+ * site (an extension shouldn't quietly turn on your camera or read your location).
+ */
+const ASK_EXTENSIONS_TOO = new Set(['media', 'geolocation', 'display-capture', 'clipboard-read', 'idle-detection', 'window-management', 'midiSysex'])
+
+const isExtension = (origin: string) => origin.startsWith('chrome-extension://')
+
 /** Direct hardware access from web pages is off in Stage 1. */
 const DEVICE_ACCESS = new Set(['hid', 'serial', 'usb', 'bluetooth'])
 
@@ -38,7 +46,9 @@ const decisions = new Map<string, boolean>()
 
 function originOf(url: string): string {
   try {
-    return new URL(url).origin
+    const u = new URL(url)
+    // URL gives "null" as the origin of chrome-extension:// and file:// pages; keep them apart.
+    return u.origin !== 'null' ? u.origin : `${u.protocol}//${u.host}`
   } catch {
     return url
   }
@@ -85,7 +95,7 @@ export function undecidedPermissions(url: string): string[] {
 export function configureSession(ses: Session, browser: Browser): void {
   ses.setPermissionRequestHandler(async (wc: WebContents | null, permission, callback, details) => {
     const origin = originOf(details.requestingUrl ?? wc?.getURL() ?? '')
-    if (origin.startsWith('chrome-extension://') || ALWAYS_ALLOW.has(permission)) return callback(true)
+    if (ALWAYS_ALLOW.has(permission) || (isExtension(origin) && !ASK_EXTENSIONS_TOO.has(permission))) return callback(true)
     if (!(permission in ASK)) return callback(false)
 
     const key = `${origin}|${permission}`
@@ -93,8 +103,13 @@ export function configureSession(ses: Session, browser: Browser): void {
     if (remembered !== undefined) return callback(remembered)
 
     const what = permission === 'media' ? describeMedia(details) : ASK[permission]
-    const host = new URL(origin).host || origin
-    const controller = wc ? browser.fromWebContents(wc) ?? browser.findTabByWebContents(wc)?.window : undefined
+    const host = isExtension(origin)
+      ? (ses.extensions.getExtension(new URL(origin).host)?.name ?? 'An extension')
+      : origin.startsWith('file:')
+        ? 'A file on this computer'
+        : new URL(origin).host || origin
+    // Requests from extension pages don't always say which tab they came from: ask in the current window.
+    const controller = (wc ? browser.fromWebContents(wc) ?? browser.findTabByWebContents(wc)?.window : undefined) ?? browser.lastFocused ?? undefined
     let response: number
     if (controller) {
       // Zirtola's own prompt, under the address bar of the tab's window.
@@ -120,7 +135,7 @@ export function configureSession(ses: Session, browser: Browser): void {
 
   ses.setPermissionCheckHandler((_wc, permission, requestingOrigin) => {
     const origin = originOf(requestingOrigin)
-    if (origin.startsWith('chrome-extension://') || ALWAYS_ALLOW.has(permission)) return true
+    if (ALWAYS_ALLOW.has(permission) || (isExtension(origin) && !ASK_EXTENSIONS_TOO.has(permission))) return true
     const remembered = decisions.get(`${origin}|${permission}`)
     if (remembered !== undefined) return remembered
     return !(permission in ASK) && !DEVICE_ACCESS.has(permission)

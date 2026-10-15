@@ -11,6 +11,18 @@ files:
   - "!**/*.map"
 asar: true
 
+# Electron's built-in security switches ("fuses"), set in the shipped executable.
+electronFuses:
+  # Claude Desktop/Code start Zirtola.exe as Node to run its MCP bridge (src/main/mcp-bridge.ts).
+  runAsNode: true
+  # Cookies (your logins) are encrypted on disk with the OS keystore (DPAPI on Windows), like Chrome.
+  enableCookieEncryption: true
+  # No NODE_OPTIONS and no --inspect: malware can't use them to attach to Zirtola and read its memory.
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  # Only run the packaged app.asar, never a loose folder dropped next to it.
+  onlyLoadAppFromAsar: true
+
 # Updates are published to GitHub Releases on this repo and read by electron-updater.
 # CI uploads to a draft release first; the draft is published only once every platform
 # has uploaded, so users never see a half-finished release.

@@ -9,6 +9,7 @@ import { Tab, type SavedTab } from './tab'
 import type { Browser } from './browser'
 import { PopupHost } from './popup'
 import { homepageURL } from './url'
+import { denyWindowOpen } from './hardening'
 
 /** Height of the browser UI (tab strip + toolbar) in DIPs. Must match --strip-h + --toolbar-h in styles.css. */
 export const UI_HEIGHT = 86
@@ -81,6 +82,7 @@ export class BrowserWindowController {
       },
     })
     this.win.setMenuBarVisibility(false)
+    denyWindowOpen(this.win.webContents)
     if (opts.restore?.maximized) this.win.maximize()
 
     this.win.loadFile(path.join(__dirname, '..', 'renderer', 'index.html'), {
