@@ -1,0 +1,66 @@
+# Keeps Zirtola's Chromium patched without anyone having to merge anything.
+# Every day: if Electron has a new patch release in the current major version (these carry Chromium
+# security fixes), update to it, build, run the speed & stability benchmark, and only if all of that
+# passes, commit to main and start a release, so installed copies get it through "Check for updates".
+# Major versions (a new Chromium every ~8 weeks) are left for a person to test.
+name: Electron security updates
+
+on:
+  schedule:
+    - cron: '17 6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  actions: write
+
+concurrency:
+  group: electron-security
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+
+      - name: Update Electron within the current major version
+        id: bump
+        run: |
+          current=$(node -p "require('electron/package.json').version")
+          major=${current%%.*}
+          npm install "electron@^$major" --no-audit --no-fund
+          latest=$(node -p "require('electron/package.json').version")
+          echo "current=$current latest=$latest"
+          if [ "$current" = "$latest" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "version=$latest" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Type-check and build
+        if: steps.bump.outputs.changed == 'true'
+        run: npm run typecheck && npm run build
+
+      - name: Speed & stability benchmark
+        if: steps.bump.outputs.changed == 'true'
+        # Runner accounts can't use Chromium's sandbox helper; the benchmark only loads its own page.
+        run: xvfb-run -a npx electron --no-sandbox scripts/bench
+
+      - name: Commit to main and release
+        if: steps.bump.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git commit -am "Electron ${{ steps.bump.outputs.version }} (Chromium security update)"
+          git push origin HEAD:main
+          # Pushes made with the workflow token don't trigger other workflows, so start the release directly.
+          gh workflow run release.yml --ref main

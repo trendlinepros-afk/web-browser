@@ -351,7 +351,13 @@ and `runtime` messaging all work.
   Not yet done: code signing (updates are verified by SHA-512 from GitHub over HTTPS, but installers are unsigned),
   asar integrity validation, and loading the UI from a custom protocol instead of file://.
 - Updates download over HTTPS from GitHub Releases. `electron-updater` checks the SHA-512 from `latest.yml`.
-- Chromium security fixes arrive through Electron releases. Dependabot raises them daily; releasing promptly is the
-  most important ongoing security task.
+- Chromium security fixes arrive through Electron releases, and shipping them promptly is the most important
+  ongoing security task. `.github/workflows/electron-security.yml` does it daily without anyone merging anything:
+  it updates Electron within the current major, type-checks, builds, runs `npm run bench`, and only if all pass
+  commits to main and starts a release. New major versions (new Chromium every ~8 weeks; Electron supports the
+  latest three) still need a person to test them.
+- `adm-zip` (used by electron-chrome-web-store to unpack extension packages) is forced to ≥0.6.1 via `overrides`:
+  older versions let a crafted package write outside its folder (symlinks, `../`) or exhaust memory. Verified
+  with a crafted zip; `npm audit --omit=dev` is clean.
 - Ad blocking never touches requests made by extensions, so password managers keep working, or top-level
   navigations, so you can always open the page you asked for.
