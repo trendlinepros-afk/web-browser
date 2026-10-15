@@ -19,6 +19,8 @@ const MIN_ALARM_MS = 30_000
 
 // ---- Diagnostics ---------------------------------------------------------------
 
+const LIBRARY_CHATTER = /^[a-z][A-Za-z]*\.[a-zA-Z.]+( \(result\))?( |$)/
+
 const LOG_LIMIT = 600
 const log: string[] = []
 
@@ -56,6 +58,9 @@ export class ExtensionApis {
     ses.serviceWorkers.on('console-message', (_e, d) => {
       const scope = ses.serviceWorkers.getWorkerFromVersionID(d.versionId)?.scope ?? ''
       if (!scope.startsWith('chrome-extension://')) return
+      // electron-chrome-extensions logs every API call ("tabs.query [...]", "… (result) …"); skip that
+      // chatter so the log keeps what matters.
+      if (d.level <= 1 && LIBRARY_CHATTER.test(d.message)) return
       diag(`[${shortScope(scope)} worker ${levelName(d.level)}] ${d.message}${d.sourceUrl ? ` (${d.sourceUrl.split('/').pop()}:${d.lineNumber})` : ''}`)
     })
     ses.extensions.on('extension-loaded', (_e, ext) => diag(`loaded ${ext.name} ${ext.version} from ${ext.path}`))

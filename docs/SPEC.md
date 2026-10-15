@@ -116,6 +116,27 @@ These are targets. We measure against them at the end of each stage.
 | 30 tabs restored at startup | Only the active tab loads. The rest cost ~0 MB until clicked |
 | Background tab after sleep | Renderer process freed (0 MB) |
 
+**Benchmark** (`npm run bench`, `scripts/bench/run.js`): drives the real browser through its UI with a news-site-sized
+test page and checks speed, memory, leaks and crash recovery. It fails if sleeping loses tabs or anything throws.
+Run it before shipping anything that touches tabs, windows, sleeping or extensions. Results on 2026-10-15
+(Linux, 4 cores, working-set totals from `app.getAppMetrics()`):
+
+| | Measured |
+|---|---|
+| Startup to usable window | 0.67 s |
+| 1 blank tab | 553 MB (browser 196, GPU 136, network 78, page 143) |
+| 20 heavy tabs, one site, all awake | 904 MB (plain Chromium 152: 2,982 MB) |
+| 20 heavy tabs, 20 sites, all awake | 2,692 MB (plain Chromium 152: 2,984 MB) |
+| …30 s after "Sleep now" | ~710 MB, all 21 tabs kept |
+| Switch tab / wake a sleeping tab | 9 ms / 75 ms |
+| Open Settings or a menu | 5 ms |
+| Open+close 200 tabs; 15 windows | 2.6 s; nothing left behind, no growth |
+| A tab's renderer crashes | rest of the browser unaffected; the tab reloads in ~130 ms when clicked |
+| Quit | ~10 ms |
+
+Same-site tabs share one renderer (`process-per-site`): ~3x less memory than Chrome when awake, but memory from tabs put
+to sleep comes back when V8 next collects garbage (~30 s), not instantly. Separate sites free it at once.
+
 Resource savers:
 1. **Tab sleeping (discarding).** A tab hidden for longer than `discardAfterMinutes` (default 15) has its WebContents
    destroyed. We keep the URL, title, favicon and **full back/forward history**, and clicking the tab restores it.

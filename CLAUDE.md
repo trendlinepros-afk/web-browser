@@ -12,6 +12,9 @@ never reaches the owner. (Docs-only changes skip the release.)
 Before pushing:
 1. `npm run typecheck && npm run build`
 2. Exercise the change in the running app (see "Testing" below).
+   For anything touching tabs, windows, sleeping, extensions or startup, also run `npm run bench`
+   (under `xvfb-run` here) and compare with the table in `docs/SPEC.md` §4. Speed and low memory are
+   the browser's core values.
 3. After pushing, check the Release workflow run and fix it if it fails.
 
 ## Layout

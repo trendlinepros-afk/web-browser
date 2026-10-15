@@ -48,8 +48,10 @@ export async function setupExtensions(browser: Browser): Promise<ElectronChromeE
       tab?.window.activateTab(tab)
     },
     removeTab(wc) {
+      // The library also calls this whenever a tab's WebContents is destroyed, which is what putting a
+      // tab to sleep does. Only close the tab when an extension removes its live page (chrome.tabs.remove).
       const tab = browser.findTabByWebContents(wc)
-      tab?.window.closeTab(tab)
+      if (tab && tab.webContents === wc) tab.window.closeTab(tab)
     },
     async createWindow(details) {
       const url = Array.isArray(details.url) ? details.url[0] : details.url
