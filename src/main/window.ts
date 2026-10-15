@@ -10,6 +10,7 @@ import type { Browser } from './browser'
 import { PopupHost } from './popup'
 import { homepageURL } from './url'
 import { denyWindowOpen } from './hardening'
+import { chromiumStatus } from './chromium-status'
 
 /** Height of the browser UI (tab strip + toolbar) in DIPs. Must match --strip-h + --toolbar-h in styles.css. */
 export const UI_HEIGHT = 86
@@ -501,6 +502,7 @@ export class BrowserWindowController {
       accent: accentColor(),
       showHomeButton: getSettings().showHomeButton,
       groups: [...this.groups.values()],
+      chromium: chromiumStatus(),
     }
   }
 

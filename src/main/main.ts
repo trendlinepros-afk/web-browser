@@ -7,7 +7,8 @@ import { setupExtensions } from './extensions'
 import { TabSleeper } from './tab-sleeper'
 import { BrowserMcpServer } from './mcp-server'
 import { Menus } from './menu'
-import { checkForUpdates, setUpdatePromptHost } from './updater'
+import { setUpdatePromptHost, startBackgroundUpdateChecks } from './updater'
+import { startChromiumStatus } from './chromium-status'
 import { offerDefaultBrowserOnce } from './default-browser'
 import { flushSettings, getSettings } from './settings'
 import { applyCommandLineHardening } from './privacy'
@@ -103,9 +104,10 @@ function main(): void {
       const w = browser?.lastFocused
       return w && !w.win.isDestroyed() ? (spec) => w.popup.prompt(spec) : null
     })
-    if (getSettings().checkForUpdatesOnStartup) {
-      setTimeout(() => checkForUpdates({ interactive: false }), 10_000)
-    }
+    startBackgroundUpdateChecks(() => getSettings().checkForUpdatesOnStartup)
+    startChromiumStatus(() => {
+      for (const w of browser?.windows.values() ?? []) w.pushState()
+    })
 
     app.on('activate', () => {
       if (BrowserWindow.getAllWindows().length === 0) browser?.createWindow()

@@ -220,10 +220,45 @@ svg {
   height: 30px;
 }
 
+/* Chromium version tag, just left of Zirtola's version. The dot: green = newest, amber = newer out. */
+#chromium-tag {
+  flex: none;
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 20px;
+  padding: 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  background: transparent;
+  color: var(--faint);
+  font: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  cursor: pointer;
+  -webkit-app-region: no-drag;
+}
+#chromium-tag:hover {
+  color: inherit;
+}
+#chromium-tag::before {
+  content: '';
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--faint);
+}
+#chromium-tag.latest::before { background: #2fbf71; }
+#chromium-tag.patch::before,
+#chromium-tag.major::before { background: #e2b21c; }
+#chromium-tag.checking::before { opacity: 0.4; }
+
 /* Zirtola's version, at the far end of the tab strip (next to the window buttons on Windows). */
 #app-version {
   flex: none;
-  margin-left: auto;
   padding: 0 6px;
   color: var(--faint);
   font-size: 11px;

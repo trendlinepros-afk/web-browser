@@ -64,6 +64,24 @@ export interface WindowState {
   accent: string | null
   showHomeButton: boolean
   groups: TabGroupInfo[]
+  chromium: ChromiumStatus
+}
+
+/** The Chromium tag in the tab strip (see src/main/chromium-status.ts). */
+export interface ChromiumStatus {
+  /** Chromium this build runs, e.g. 152.0.7977.149. */
+  version: string
+  /** Electron this build runs. */
+  electron: string
+  /**
+   * latest: no newer Chromium is available to Zirtola yet; patch: a security patch is out (ships on
+   * its own, usually within a day); major: a newer Chromium needs a Zirtola update; unknown: offline.
+   */
+  state: 'checking' | 'latest' | 'patch' | 'major' | 'unknown'
+  electronLatest?: string
+  /** Google Chrome's current stable version, for reference. */
+  chromeStable?: string
+  checkedAt?: number
 }
 
 export type UpdateStatus =
@@ -86,6 +104,8 @@ export interface UiApi {
   goHome(tabId: number): void
   /** Opens the Claude chat panel under the Claude button (its right edge and bottom). */
   openChat(x: number, y: number): void
+  /** Details for the Chromium tag, with a "Check for updates" button. */
+  showChromiumInfo(): void
   /** Drag and drop in the tab strip: put the tab before another (null: at the end), in a group or none. */
   moveTab(tabId: number, beforeTabId: number | null, groupId: number | null): void
   moveGroup(groupId: number, beforeTabId: number | null): void

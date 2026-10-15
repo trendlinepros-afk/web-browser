@@ -7,11 +7,14 @@ import { APP_NAME } from './brand'
  * Updates come from GitHub Releases of this (public) repo. See electron-builder.yml `publish`.
  *
  * - Interactive check ("Check for updates…"): tells you the result either way, asks before downloading.
- * - Background check (on startup): downloads silently, then offers "Restart now / Later".
- *   Choosing Later installs on the next quit.
+ * - Background check (on startup, then every few hours): silent unless there is a new version, then
+ *   asks once per version "Update now / Later". Update now downloads and restarts; Later downloads
+ *   in the background and installs on the next quit.
  */
 let busy = false
 let downloadedVersion: string | null = null
+/** A version the background check already told the user about, so it isn't announced again. */
+let announcedVersion: string | null = null
 
 let updater: AppUpdater | null = null
 /** The "Restart now / Later" question while it's on screen, so it's never asked twice at once. */
@@ -90,7 +93,8 @@ export async function checkForUpdates({ interactive }: { interactive: boolean })
     }
     return
   }
-  if (downloadedVersion) return offerRestart(downloadedVersion)
+  // Already downloaded: it installs on quit; only a check the user asked for brings the question back.
+  if (downloadedVersion) return interactive ? offerRestart(downloadedVersion) : undefined
   if (busy) {
     if (interactive) await message({ type: 'info', message: 'An update check is already in progress.' })
     return
@@ -115,7 +119,26 @@ export async function checkForUpdates({ interactive }: { interactive: boolean })
       return
     }
 
-    if (interactive) {
+    if (!interactive) {
+      if (announcedVersion === info.version) return
+      announcedVersion = info.version
+      const choice = await message({
+        type: 'info',
+        buttons: ['Update now', 'Later'],
+        defaultId: 0,
+        cancelId: 1,
+        title: 'Update available',
+        message: `${APP_NAME} ${info.version} is available (you have ${app.getVersion()}).`,
+        detail: 'Update now downloads it and restarts the browser; your tabs are restored. Later installs it the next time you close the browser.',
+      })
+      if (choice !== 0) return void download(autoUpdater, info.version).catch((err) => console.warn('Background update download failed:', err))
+      interactive = true // from here on, failures are shown
+      await download(autoUpdater, info.version)
+      setImmediate(() => autoUpdater.quitAndInstall())
+      return
+    }
+
+    {
       const choice = await message({
         type: 'info',
         buttons: ['Download', 'Not now'],
@@ -128,15 +151,7 @@ export async function checkForUpdates({ interactive }: { interactive: boolean })
       if (choice !== 0) return
     }
 
-    const onProgress = (p: { percent: number }) => setProgress(p.percent / 100)
-    autoUpdater.on('download-progress', onProgress)
-    try {
-      await autoUpdater.downloadUpdate()
-    } finally {
-      autoUpdater.off('download-progress', onProgress)
-      setProgress(-1)
-    }
-    downloadedVersion = info.version
+    await download(autoUpdater, info.version)
     await offerRestart(info.version)
   } catch (err) {
     if (interactive) {
@@ -152,6 +167,28 @@ export async function checkForUpdates({ interactive }: { interactive: boolean })
   } finally {
     busy = false
   }
+}
+
+/** Downloads the update, showing progress on the taskbar button. */
+async function download(autoUpdater: AppUpdater, version: string): Promise<void> {
+  const onProgress = (p: { percent: number }) => setProgress(p.percent / 100)
+  autoUpdater.on('download-progress', onProgress)
+  try {
+    await autoUpdater.downloadUpdate()
+  } finally {
+    autoUpdater.off('download-progress', onProgress)
+    setProgress(-1)
+  }
+  downloadedVersion = version
+}
+
+/** Checks on startup and then every few hours while the browser stays open. */
+export function startBackgroundUpdateChecks(enabled: () => boolean): void {
+  const run = () => {
+    if (enabled()) checkForUpdates({ interactive: false }).catch(() => {})
+  }
+  setTimeout(run, 10_000)
+  setInterval(run, 4 * 60 * 60 * 1000).unref()
 }
 
 function stripHtml(html: string): string {

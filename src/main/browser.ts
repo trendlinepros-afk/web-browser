@@ -12,6 +12,8 @@ import { AdBlocker } from './blocker'
 import { configureNetwork } from './privacy'
 import { BookmarkStore } from './bookmarks'
 import { onThemeChanged } from './theme'
+import { showChromiumInfo } from './chromium-status'
+import { checkForUpdates } from './updater'
 
 interface SavedSession {
   version: 1
@@ -290,6 +292,8 @@ export class Browser {
           return tab && this.onShowTabMenu?.(w, tab, Number(args[1]), Number(args[2]))
         case 'openChat':
           return this.onOpenChat?.(w, Number(args[0]), Number(args[1]))
+        case 'showChromiumInfo':
+          return void showChromiumInfo((spec) => w.popup.prompt(spec), () => checkForUpdates({ interactive: true }))
         case 'showShieldMenu':
           return this.onShowShieldMenu?.(w, Number(args[0]), Number(args[1]))
         default:

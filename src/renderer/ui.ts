@@ -1,5 +1,5 @@
 // Browser UI: tab strip + toolbar. Plain DOM, no framework; state is pushed from the main process.
-import type { BookmarkBarState, BookmarkItem, OpenDisposition, TabGroupInfo, TabInfo, UiApi, WindowState } from '../shared/types'
+import type { BookmarkBarState, BookmarkItem, ChromiumStatus, OpenDisposition, TabGroupInfo, TabInfo, UiApi, WindowState } from '../shared/types'
 
 declare global {
   interface Window {
@@ -75,6 +75,21 @@ $('incognito-badge').hidden = !incognito
 const versionEl = $('app-version')
 versionEl.textContent = `v${params.get('version') ?? ''}`
 versionEl.title = `Zirtola ${params.get('version') ?? ''}`
+
+const chromiumTag = $<HTMLButtonElement>('chromium-tag')
+chromiumTag.addEventListener('click', () => api.showChromiumInfo())
+
+function renderChromium(c: ChromiumStatus): void {
+  const newer = c.state === 'patch' || c.state === 'major'
+  chromiumTag.className = c.state
+  chromiumTag.textContent = `Chromium ${c.version}${newer ? ' · update' : ''}`
+  chromiumTag.title =
+    c.state === 'latest'
+      ? `Chromium ${c.version}: the newest available for Zirtola`
+      : newer
+        ? `Chromium ${c.version}: a newer Chromium is available (Electron ${c.electronLatest}). Click for details.`
+        : `Chromium ${c.version}`
+}
 
 let state: WindowState | null = null
 /** True while the user is editing the address bar; we must not overwrite their typing. */
@@ -668,6 +683,7 @@ api.onFocusAddressBar(() => {
 api.onState((s) => {
   state = s
   render()
+  renderChromium(s.chromium)
 })
 
 api.ready()

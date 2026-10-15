@@ -194,7 +194,14 @@ Claude Desktop connects through `npx mcp-remote` with the same URL and header (s
 
 - `electron-updater` with the **GitHub provider** on this public repo, so no token is needed to download updates.
 - A **"Check for updates…"** button in the menu checks, downloads, then asks **Restart to update**.
-  On launch the browser also checks quietly (can be turned off) and only shows a notice when an update exists.
+  On launch, and every 4 hours while open, the browser also checks quietly (can be turned off). When a new
+  version exists it asks once per version: **Update now** (download, restart, tabs restored) or **Later**
+  (downloads in the background, installs on the next quit).
+- A **Chromium tag** left of the version label shows the Chromium this build runs. Its dot is green when
+  it's the newest Chromium Electron offers, amber when a newer one is out (npm `electron@latest`; a patch
+  ships on its own via the daily workflow, a new major needs a tested update). Clicking it explains this,
+  shows Google Chrome's stable version for reference, and offers "Check for updates". Looked up 15 s after
+  launch, then every 12 hours (`chromium-status.ts`), only when automatic update checks are on.
 - Releases: push a tag `vX.Y.Z` and GitHub Actions (`.github/workflows/release.yml`) builds Windows (NSIS),
   macOS (dmg + zip) and Linux (AppImage), then publishes them to a GitHub Release that the updater reads.
 - Caveats:
