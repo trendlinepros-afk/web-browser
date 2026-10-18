@@ -15,6 +15,7 @@ import { diagnosticsText } from './extension-apis'
 import { connectClaude, type ConnectResult } from './claude-connect'
 import { ClaudeChat } from './claude-chat'
 import { toNavigableURL } from './url'
+import { savePassword } from './deluge'
 
 const REPO_URL = 'https://github.com/trendlinepros-afk/web-browser'
 
@@ -51,6 +52,7 @@ export class Menus {
     browser.onShowShieldMenu = (w, x, y) => this.showShieldMenu(w, x, y)
     browser.onShowGroupMenu = (w, groupId, x, y) => this.showGroupMenu(w, groupId, x, y)
     browser.onOpenChat = (w, x, y) => this.openChat(w, x, y)
+    browser.torrents.openSetup = (w) => this.openSettings(w, 'torrents')
     this.bookmarkUi = new BookmarkUi(browser)
     browser.onBookmarkCommand = (w, name, args) => this.bookmarkUi.handle(w, name, args)
   }
@@ -218,6 +220,8 @@ export class Menus {
   // ---- Settings panel ---------------------------------------------------------
 
   private lastCleared: { cache?: string; site?: string } = {}
+  /** Result of the last "Test" in Settings → Torrents. */
+  private delugeStatus: string | null = null
 
   openSettings(w: BrowserWindowController, section?: string, keepStatus = false): void {
     w.popup.onSetting = (key, value) => {
@@ -409,6 +413,55 @@ export class Menus {
           ],
         },
         {
+          id: 'torrents',
+          title: 'Torrents',
+          subtitle: 'Send magnet and .torrent links to your Deluge server.',
+          controls: [
+            {
+              kind: 'toggle',
+              key: 'torrents.enabled',
+              label: 'Send torrent links to Deluge',
+              description: 'Clicking a magnet link or a .torrent download sends it to Deluge instead. You can also right-click a link → Send to Deluge.',
+              value: s.torrents.enabled,
+            },
+            {
+              kind: 'text',
+              key: 'torrents.url',
+              label: 'Deluge Web UI address',
+              description: 'The address you open Deluge in, e.g. http://192.168.1.10:8112 (Unraid: your server\'s IP and the container\'s Web UI port).',
+              value: s.torrents.url,
+              placeholder: 'http://192.168.1.10:8112',
+            },
+            {
+              kind: 'text',
+              key: 'torrents.password',
+              label: 'Web UI password',
+              description: s.torrents.password ? `Saved${s.torrents.password.startsWith('enc:') ? ' (encrypted)' : ''}. Type a new one to change it.` : 'Deluge\'s default is "deluge".',
+              value: '',
+              placeholder: s.torrents.password ? '••••••••' : 'Password',
+              secret: true,
+            },
+            { kind: 'button', action: 'testDeluge', label: 'Test', style: 'primary', description: this.delugeStatus ?? 'Check that Zirtola can sign in to Deluge.' },
+            { kind: 'toggle', key: 'torrents.addPaused', label: 'Add torrents paused', value: s.torrents.addPaused },
+            {
+              kind: 'text',
+              key: 'torrents.label',
+              label: 'Label',
+              description: 'Optional. Needs Deluge\'s Label plugin.',
+              value: s.torrents.label,
+              placeholder: 'e.g. iso',
+            },
+            {
+              kind: 'text',
+              key: 'torrents.downloadLocation',
+              label: 'Download folder',
+              description: 'Optional, a folder on the server (inside the container), e.g. /data/isos. Empty uses Deluge\'s default.',
+              value: s.torrents.downloadLocation,
+              placeholder: 'Deluge\'s default',
+            },
+          ],
+        },
+        {
           id: 'claude',
           title: 'Claude',
           subtitle: 'Let Claude control Zirtola through MCP.',
@@ -496,6 +549,26 @@ export class Menus {
       case 'checkForUpdatesOnStartup':
         updateSettings((s) => (s.checkForUpdatesOnStartup = bool))
         break
+      case 'torrents.enabled':
+        updateSettings((s) => (s.torrents.enabled = bool))
+        break
+      case 'torrents.url':
+        updateSettings((s) => (s.torrents.url = typeof value === 'string' ? value.trim() : ''))
+        this.delugeStatus = null
+        break
+      case 'torrents.password':
+        if (typeof value === 'string' && value) savePassword(value)
+        this.delugeStatus = null
+        break
+      case 'torrents.addPaused':
+        updateSettings((s) => (s.torrents.addPaused = bool))
+        break
+      case 'torrents.label':
+        updateSettings((s) => (s.torrents.label = typeof value === 'string' ? value.trim() : ''))
+        break
+      case 'torrents.downloadLocation':
+        updateSettings((s) => (s.torrents.downloadLocation = typeof value === 'string' ? value.trim() : ''))
+        break
       case 'mcp.enabled':
         await this.setMcpEnabled(bool)
         break
@@ -564,6 +637,19 @@ export class Menus {
         updateSettings((x) => (x.mcp.token = ''))
         BrowserMcpServer.ensureToken()
         if (this.mcp.running) void this.mcp.stop().then(() => this.mcp.start())
+        return
+      case 'testDeluge':
+        this.delugeStatus = 'Testing…'
+        refresh()
+        this.browser.torrents.deluge
+          .test()
+          .then((version) => {
+            this.delugeStatus = `✓ Connected to ${version}.`
+            // A working server is what people want on: catch links from now on.
+            if (!getSettings().torrents.enabled) updateSettings((s) => (s.torrents.enabled = true))
+          })
+          .catch((err) => (this.delugeStatus = `✗ ${err instanceof Error ? err.message : String(err)}`))
+          .finally(refresh)
         return
       case 'checkUpdates':
         w.popup.close()

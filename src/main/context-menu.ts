@@ -1,6 +1,7 @@
 import { clipboard, Menu, type MenuItem, type MenuItemConstructorOptions, type WebContents } from 'electron'
 import type { Tab } from './tab'
 import { getSettings } from './settings'
+import { isMagnet, isTorrentURL } from './torrents'
 
 export function attachContextMenu(tab: Tab, wc: WebContents): void {
   wc.on('context-menu', (_event, params) => {
@@ -11,7 +12,13 @@ export function attachContextMenu(tab: Tab, wc: WebContents): void {
       if (items.length && items[items.length - 1].type !== 'separator') items.push({ type: 'separator' })
     }
 
-    if (params.linkURL) {
+    if (params.linkURL && (isMagnet(params.linkURL) || isTorrentURL(params.linkURL))) {
+      items.push({ label: 'Send to Deluge', click: () => browser.torrents.sendLink(params.linkURL, wc.session, window) })
+    }
+    if (params.linkURL && isMagnet(params.linkURL)) {
+      items.push({ label: 'Copy magnet link', click: () => clipboard.writeText(params.linkURL) })
+      sep()
+    } else if (params.linkURL) {
       items.push(
         { label: 'Open link in new tab', click: () => window.createTab({ url: params.linkURL, background: true }) },
         { label: 'Open link in new window', click: () => browser.createWindow({ incognito: tab.incognito, url: params.linkURL }) },

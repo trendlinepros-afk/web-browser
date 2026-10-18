@@ -30,6 +30,20 @@ export interface Settings {
     /** Send the Global Privacy Control signal (Sec-GPC: 1), a legal "do not sell/share" request in some regions. */
     globalPrivacyControl: boolean
   }
+  /** Sending magnet and .torrent links to a Deluge server (deluge.ts, torrents.ts). */
+  torrents: {
+    /** Catch magnet and .torrent links and send them to Deluge instead. */
+    enabled: boolean
+    /** Deluge Web UI address, e.g. http://192.168.1.10:8112 */
+    url: string
+    /** Web UI password; "enc:" + OS-encrypted base64 when the keychain is available. */
+    password: string
+    addPaused: boolean
+    /** Label (Deluge's Label plugin); empty for none. */
+    label: string
+    /** Folder on the server; empty uses Deluge's default. */
+    downloadLocation: string
+  }
   mcp: {
     enabled: boolean
     port: number
@@ -58,6 +72,14 @@ const DEFAULTS: Settings = {
   },
   privacy: {
     globalPrivacyControl: true,
+  },
+  torrents: {
+    enabled: false,
+    url: '',
+    password: '',
+    addPaused: false,
+    label: '',
+    downloadLocation: '',
   },
   mcp: {
     enabled: false,
@@ -93,6 +115,7 @@ export function getSettings(): Settings {
     ...stored,
     blocking: { ...DEFAULTS.blocking, ...(stored.blocking ?? {}) },
     privacy: { ...DEFAULTS.privacy, ...(stored.privacy ?? {}) },
+    torrents: { ...DEFAULTS.torrents, ...(stored.torrents ?? {}) },
     mcp: { ...DEFAULTS.mcp, ...(stored.mcp ?? {}) },
   }
   return cached

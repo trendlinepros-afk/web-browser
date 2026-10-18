@@ -1,7 +1,7 @@
 // Preload for the browser UI (tab strip + toolbar). Exposes a small, explicit API; no Node access leaks to the page.
 import { contextBridge, ipcRenderer } from 'electron'
 import { injectBrowserAction } from 'electron-chrome-extensions/browser-action'
-import type { BookmarkBarState, UiApi, WindowState } from '../shared/types'
+import type { BookmarkBarState, ToastSpec, UiApi, WindowState } from '../shared/types'
 
 // Registers the <browser-action-list> element used for extension toolbar buttons.
 injectBrowserAction()
@@ -17,6 +17,10 @@ const api: UiApi = {
   goHome: (id) => send('goHome', id),
   openChat: (x, y) => send('openChat', x, y),
   showChromiumInfo: () => send('showChromiumInfo'),
+  onToast: (cb) => {
+    ipcRenderer.on('ui:toast', (_e, toast: ToastSpec) => cb(toast))
+  },
+  toastAction: (action) => send('toastAction', action),
   moveTab: (id, beforeId, groupId) => send('moveTab', id, beforeId, groupId),
   moveGroup: (groupId, beforeId) => send('moveGroup', groupId, beforeId),
   showGroupMenu: (groupId, x, y) => send('showGroupMenu', groupId, x, y),

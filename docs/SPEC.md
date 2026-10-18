@@ -197,6 +197,16 @@ Claude Desktop connects through `npx mcp-remote` with the same URL and header (s
   On launch, and every 4 hours while open, the browser also checks quietly (can be turned off). When a new
   version exists it asks once per version: **Update now** (download, restart, tabs restored) or **Later**
   (downloads in the background, installs on the next quit).
+- **Torrents → Deluge** (`deluge.ts`, `torrents.ts`), like the old *Deluge Siphon* extension: with
+  Settings → Torrents pointed at a Deluge Web UI (e.g. `http://unraid:8112`), clicking a magnet link
+  or a .torrent download sends it to Deluge over its JSON-RPC API (`auth.login`, auto-connects the Web UI
+  to its daemon, `core.add_torrent_magnet` / `core.add_torrent_file`, optional label via the Label
+  plugin, add paused, download folder). .torrent files are fetched with the page's cookies (private
+  trackers) and checked to be bencoded before sending. Right-click → *Send to Deluge* works on any
+  magnet/.torrent link. A toast in the address bar reports the result (sent / already in Deluge / error
+  with a Settings button). The password is stored encrypted with the OS keychain (`safeStorage`).
+  With it off, a magnet click asks once: Set up / Open in torrent app / Not now. Tested against a real
+  Deluge 2.1 (deluged + deluge-web).
 - A **Chromium tag** left of the version label shows the Chromium this build runs. Its dot is green when
   it's the newest Chromium Electron offers, amber when a newer one is out (npm `electron@latest`; a patch
   ships on its own via the daily workflow, a new major needs a tested update). Clicking it explains this,

@@ -67,6 +67,14 @@ export interface WindowState {
   chromium: ChromiumStatus
 }
 
+/** A short message under the toolbar, e.g. "Sent to Deluge". */
+export interface ToastSpec {
+  kind: 'busy' | 'ok' | 'error'
+  text: string
+  /** A button on the toast. */
+  action?: 'torrent-settings'
+}
+
 /** The Chromium tag in the tab strip (see src/main/chromium-status.ts). */
 export interface ChromiumStatus {
   /** Chromium this build runs, e.g. 152.0.7977.149. */
@@ -106,6 +114,8 @@ export interface UiApi {
   openChat(x: number, y: number): void
   /** Details for the Chromium tag, with a "Check for updates" button. */
   showChromiumInfo(): void
+  onToast(cb: (toast: ToastSpec) => void): void
+  toastAction(action: string): void
   /** Drag and drop in the tab strip: put the tab before another (null: at the end), in a group or none. */
   moveTab(tabId: number, beforeTabId: number | null, groupId: number | null): void
   moveGroup(groupId: number, beforeTabId: number | null): void
@@ -182,7 +192,7 @@ export type SettingsControl =
   | { kind: 'select'; key: string; label: string; description?: string; value: string; options: { value: string; label: string }[] }
   | { kind: 'button'; action: string; label: string; description?: string; style?: 'primary' | 'danger' }
   | { kind: 'info'; label: string; value: string }
-  | { kind: 'text'; key: string; label: string; description?: string; value: string; placeholder?: string }
+  | { kind: 'text'; key: string; label: string; description?: string; value: string; placeholder?: string; secret?: boolean }
 
 export interface SettingsSection {
   id: string

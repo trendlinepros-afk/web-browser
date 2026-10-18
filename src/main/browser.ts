@@ -14,6 +14,7 @@ import { BookmarkStore } from './bookmarks'
 import { onThemeChanged } from './theme'
 import { showChromiumInfo } from './chromium-status'
 import { checkForUpdates } from './updater'
+import { TorrentSender } from './torrents'
 
 interface SavedSession {
   version: 1
@@ -26,6 +27,7 @@ export class Browser {
   readonly profile: Session
   readonly blocker = new AdBlocker()
   readonly bookmarks = new BookmarkStore()
+  readonly torrents = new TorrentSender(this)
   private bookmarksSent = -1
   private tabsByWebContents = new WeakMap<WebContents, Tab>()
   extensions: ElectronChromeExtensions | null = null
@@ -56,6 +58,7 @@ export class Browser {
     }
     this.profile = session.fromPartition(this.profilePartition)
     configureSession(this.profile, this)
+    this.torrents.attach(this.profile)
     configureNetwork(this.profile, this.blocker)
     this.blocker.onBlocked = (wc) => {
       const tab = this.tabsByWebContents.get(wc)
@@ -75,6 +78,7 @@ export class Browser {
       // A fresh in-memory partition per incognito window: nothing touches disk or other windows.
       ses = session.fromPartition(`incognito-${++this.incognitoCounter}-${Date.now()}`, { cache: false })
       configureSession(ses, this)
+      this.torrents.attach(ses)
       configureNetwork(ses, this.blocker)
     }
     if (!incognito) this.sessionFrozen = false
@@ -292,6 +296,9 @@ export class Browser {
           return tab && this.onShowTabMenu?.(w, tab, Number(args[1]), Number(args[2]))
         case 'openChat':
           return this.onOpenChat?.(w, Number(args[0]), Number(args[1]))
+        case 'toastAction':
+          if (args[0] === 'torrent-settings') this.torrents.openSetup?.(w)
+          return
         case 'showChromiumInfo':
           return void showChromiumInfo((spec) => w.popup.prompt(spec), () => checkForUpdates({ interactive: true }))
         case 'showShieldMenu':

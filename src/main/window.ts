@@ -1,6 +1,6 @@
 import { app, BrowserWindow, nativeTheme, type HandlerDetails, type Session, type WebContentsView, type WindowOpenHandlerResponse } from 'electron'
 import path from 'node:path'
-import { GROUP_COLORS, type BookmarkBarState, type GroupColor, type TabGroupInfo, type WindowState } from '../shared/types'
+import { GROUP_COLORS, type BookmarkBarState, type GroupColor, type TabGroupInfo, type ToastSpec, type WindowState } from '../shared/types'
 import { BookmarkStore } from './bookmarks'
 import { getSettings } from './settings'
 import { APP_NAME } from './brand'
@@ -452,6 +452,11 @@ export class BrowserWindowController {
     if (this.win.isDestroyed()) return
     this.win.webContents.focus()
     this.win.webContents.send('ui:focus-address-bar')
+  }
+
+  /** A short message under the toolbar (e.g. "Sent to Deluge"). */
+  toast(toast: ToastSpec): void {
+    if (this.uiReady && !this.win.isDestroyed()) this.win.webContents.send('ui:toast', toast)
   }
 
   /** Coalesces many tab events into one UI update per tick. */

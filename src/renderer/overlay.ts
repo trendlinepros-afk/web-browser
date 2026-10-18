@@ -321,7 +321,7 @@ function control(c: SettingsControl): HTMLElement {
     text.replaceChildren(Object.assign(document.createElement('div'), { className: 'label', textContent: c.description ?? '' }))
     row.append(btn)
   } else if (c.kind === 'text') {
-    const input = Object.assign(document.createElement('input'), { className: 'text-input', type: 'text', value: c.value, placeholder: c.placeholder ?? '', spellcheck: false })
+    const input = Object.assign(document.createElement('input'), { className: 'text-input', type: c.secret ? 'password' : 'text', value: c.value, placeholder: c.placeholder ?? '', spellcheck: false })
     input.setAttribute('aria-label', c.label)
     const commit = () => {
       if (input.value.trim() !== c.value) api.setSetting(c.key, input.value)
@@ -346,6 +346,7 @@ const SECTION_ICONS: Record<string, string> = {
   startup: '<path d="M4.5 11 12 4.5l7.5 6.5"/><path d="M6.5 9.5v9h4v-5h3v5h4v-9"/>',
   bookmarks: '<path d="M7 4.5h10v15l-5-3.5-5 3.5z"/>',
   extensions: '<path d="M9.5 4.5h3v2a1.5 1.5 0 0 0 3 0v-2h3v5h-2a1.5 1.5 0 0 0 0 3h2v5h-5v-2a1.5 1.5 0 0 0-3 0v2h-5v-5h2a1.5 1.5 0 0 0 0-3h-2v-5z"/>',
+  torrents: '<path d="M7 4.5v7a5 5 0 0 0 10 0v-7"/><path d="M7 4.5h3v7a2 2 0 0 0 4 0v-7h3"/><path d="M7 8h3M14 8h3"/>',
   claude: '<path d="M12 3.5v3M12 17.5v3M3.5 12h3M17.5 12h3M6 6l2.1 2.1M15.9 15.9 18 18M18 6l-2.1 2.1M8.1 15.9 6 18"/>',
   updates: '<path d="M12 4.5v10M7.5 10l4.5 4.5 4.5-4.5"/><path d="M5 19.5h14"/>',
 }

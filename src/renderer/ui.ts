@@ -91,6 +91,28 @@ function renderChromium(c: ChromiumStatus): void {
         : `Chromium ${c.version}`
 }
 
+const toastEl = $<HTMLDivElement>('toast')
+const toastText = toastEl.querySelector<HTMLElement>('.toast-text')!
+const toastBtn = toastEl.querySelector<HTMLButtonElement>('.toast-btn')!
+let toastTimer: ReturnType<typeof setTimeout> | undefined
+api.onToast((t) => {
+  clearTimeout(toastTimer)
+  toastEl.className = t.kind
+  toastText.textContent = t.text
+  toastEl.title = t.text
+  toastBtn.hidden = !t.action
+  toastBtn.textContent = 'Settings'
+  toastBtn.onclick = () => {
+    if (t.action) api.toastAction(t.action)
+    toastEl.hidden = true
+  }
+  toastEl.hidden = false
+  // Errors stay longer so there's time to read them; "busy" waits for the result.
+  if (t.kind !== 'busy') toastTimer = setTimeout(() => (toastEl.hidden = true), t.kind === 'error' ? 12_000 : 4_000)
+})
+toastEl.addEventListener('mousedown', (e) => e.stopPropagation())
+toastText.addEventListener('click', () => (toastEl.hidden = true))
+
 let state: WindowState | null = null
 /** True while the user is editing the address bar; we must not overwrite their typing. */
 let editing = false

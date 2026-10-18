@@ -95,6 +95,13 @@ export function undecidedPermissions(url: string): string[] {
 export function configureSession(ses: Session, browser: Browser): void {
   ses.setPermissionRequestHandler(async (wc: WebContents | null, permission, callback, details) => {
     const origin = originOf(details.requestingUrl ?? wc?.getURL() ?? '')
+    if (permission === 'openExternal') {
+      // Links to other apps. Magnet links can go to Deluge (torrents.ts); the rest stay blocked.
+      const url = (details as Electron.OpenExternalPermissionRequest).externalURL ?? ''
+      const w = wc ? (browser.findTabByWebContents(wc)?.window ?? browser.fromWebContents(wc)) : undefined
+      if (browser.torrents.handleExternal(url, w ?? browser.lastFocused ?? undefined)) return callback(false)
+      return callback(isExtension(origin))
+    }
     if (ALWAYS_ALLOW.has(permission) || (isExtension(origin) && !ASK_EXTENSIONS_TOO.has(permission))) return callback(true)
     if (!(permission in ASK)) return callback(false)
 

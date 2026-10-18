@@ -730,3 +730,55 @@ browser-action-list::part(action):hover {
 [hidden] {
   display: none !important;
 }
+
+/* Short messages (e.g. "Sent to Deluge"), over the right end of the address bar. */
+#toast {
+  position: absolute;
+  right: 40px;
+  top: 50%;
+  z-index: 5;
+  max-width: min(520px, 70%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px 4px 10px;
+  transform: translateY(-50%);
+  border-radius: 9px;
+  background: var(--raised);
+  border: 1px solid var(--line-strong);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+  font-size: 12px;
+  font-weight: 600;
+  animation: toast-in 0.15s ease-out;
+}
+#toast[hidden] { display: none; }
+#toast .toast-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+#toast::before {
+  content: '';
+  flex: none;
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--faint);
+}
+#toast.ok::before { background: var(--ok); }
+#toast.error::before { background: var(--danger); }
+#toast.busy::before { animation: toast-pulse 0.8s ease-in-out infinite alternate; }
+#toast .toast-btn {
+  flex: none;
+  height: 22px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--accent);
+  color: var(--accent-fg);
+  font: inherit;
+  cursor: pointer;
+}
+@keyframes toast-in { from { opacity: 0; } }
+@keyframes toast-pulse { to { opacity: 0.25; } }
