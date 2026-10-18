@@ -220,7 +220,7 @@ export class Menus {
   // ---- Settings panel ---------------------------------------------------------
 
   private lastCleared: { cache?: string; site?: string } = {}
-  /** Result of the last "Test" in Settings → Torrents. */
+  /** Result of the last "Test" in Settings → Magnet Torrent. */
   private delugeStatus: string | null = null
 
   openSettings(w: BrowserWindowController, section?: string, keepStatus = false): void {
@@ -414,7 +414,7 @@ export class Menus {
         },
         {
           id: 'torrents',
-          title: 'Torrents',
+          title: 'Magnet Torrent',
           subtitle: 'Send magnet and .torrent links to your Deluge server.',
           controls: [
             {

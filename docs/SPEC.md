@@ -197,8 +197,8 @@ Claude Desktop connects through `npx mcp-remote` with the same URL and header (s
   On launch, and every 4 hours while open, the browser also checks quietly (can be turned off). When a new
   version exists it asks once per version: **Update now** (download, restart, tabs restored) or **Later**
   (downloads in the background, installs on the next quit).
-- **Torrents → Deluge** (`deluge.ts`, `torrents.ts`), like the old *Deluge Siphon* extension: with
-  Settings → Torrents pointed at a Deluge Web UI (e.g. `http://unraid:8112`), clicking a magnet link
+- **Magnet Torrent** (built into the browser, not an extension; `deluge.ts`, `torrents.ts`), like the old *Deluge Siphon* extension: with
+  Settings → Magnet Torrent pointed at a Deluge Web UI (e.g. `http://unraid:8112`), clicking a magnet link
   or a .torrent download sends it to Deluge over its JSON-RPC API (`auth.login`, auto-connects the Web UI
   to its daemon, `core.add_torrent_magnet` / `core.add_torrent_file`, optional label via the Label
   plugin, add paused, download folder). .torrent files are fetched with the page's cookies (private

@@ -6,7 +6,7 @@ import { getSettings } from './settings'
 
 /**
  * Built-in "siphon": clicking a magnet link or a .torrent download sends it to your Deluge server
- * (Settings → Torrents) instead of opening a torrent app, and a toast says how it went. Links can
+ * (Settings → Magnet Torrent) instead of opening a torrent app, and a toast says how it went. Links can
  * also be sent from the right-click menu.
  */
 
@@ -26,7 +26,7 @@ export function isTorrentURL(url: string): boolean {
 
 export class TorrentSender {
   readonly deluge = new DelugeClient()
-  /** Opens Settings at the Torrents section (set by menu.ts). */
+  /** Opens Settings at the Magnet Torrent section (set by menu.ts). */
   openSetup: ((w: BrowserWindowController) => void) | null = null
   /** "Not now" on the set-up question: don't ask again until restart. */
   private declinedSetup = false
@@ -67,7 +67,7 @@ export class TorrentSender {
     void w.popup
       .prompt({
         kind: 'info',
-        title: 'Send magnet links to Deluge?',
+        title: 'Set up Magnet Torrent?',
         message: 'Zirtola can send magnet and .torrent links straight to your Deluge server (for example a Docker container on Unraid).',
         buttons: ['Set up', 'Open in torrent app', 'Not now'],
         defaultId: 0,

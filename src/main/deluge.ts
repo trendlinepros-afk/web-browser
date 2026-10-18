@@ -97,7 +97,7 @@ export class DelugeClient {
 
   private endpoint(): string {
     const url = endpointFor(getSettings().torrents.url)
-    if (!url) throw new Error('Set your Deluge Web UI address in Settings → Torrents.')
+    if (!url) throw new Error('Set your Deluge Web UI address in Settings → Magnet Torrent.')
     return url
   }
 
