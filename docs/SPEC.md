@@ -194,9 +194,13 @@ Claude Desktop connects through `npx mcp-remote` with the same URL and header (s
 
 - `electron-updater` with the **GitHub provider** on this public repo, so no token is needed to download updates.
 - A **"Check for updates…"** button in the menu checks, downloads, then asks **Restart to update**.
-  On launch, and every 4 hours while open, the browser also checks quietly (can be turned off). When a new
+  On launch, and every hour while open, the browser also checks quietly (can be turned off). When a new
   version exists it asks once per version: **Update now** (download, restart, tabs restored) or **Later**
   (downloads in the background, installs on the next quit).
+- **Security updates:** every release's notes say "Built on Electron X.Y.Z." (written by `release.yml`, which also
+  adds a "Security update" line when Electron changed since the previous release). When that's newer than the
+  running Electron, the update is downloaded without asking, then **Security update ready → Restart now / Later**;
+  after Later it's asked again every 4 hours until the browser restarts (it also installs on quit).
 - **Magnet Torrent** (built into the browser, not an extension; `deluge.ts`, `torrents.ts`), like the old *Deluge Siphon* extension: with
   Settings → Magnet Torrent pointed at a Deluge Web UI (e.g. `http://unraid:8112`), clicking a magnet link
   or a .torrent download sends it to Deluge over its JSON-RPC API (`auth.login`, auto-connects the Web UI
@@ -369,10 +373,10 @@ and `runtime` messaging all work.
   asar integrity validation, and loading the UI from a custom protocol instead of file://.
 - Updates download over HTTPS from GitHub Releases. `electron-updater` checks the SHA-512 from `latest.yml`.
 - Chromium security fixes arrive through Electron releases, and shipping them promptly is the most important
-  ongoing security task. `.github/workflows/electron-security.yml` does it daily without anyone merging anything:
+  ongoing security task. `.github/workflows/electron-security.yml` does it every 3 hours without anyone merging anything:
   it updates Electron within the current major, type-checks, builds, runs `npm run bench`, and only if all pass
   commits to main and starts a release. New major versions (new Chromium every ~8 weeks; Electron supports the
-  latest three) still need a person to test them.
+  latest three) still need a person to test them; the workflow opens a GitHub issue when one is out.
 - `adm-zip` (used by electron-chrome-web-store to unpack extension packages) is forced to ≥0.6.1 via `overrides`:
   older versions let a crafted package write outside its folder (symlinks, `../`) or exhaust memory. Verified
   with a crafted zip; `npm audit --omit=dev` is clean.

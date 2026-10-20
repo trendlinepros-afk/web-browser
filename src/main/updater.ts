@@ -2,17 +2,24 @@ import { app, BrowserWindow, dialog } from 'electron'
 import type { AppUpdater } from 'electron-updater'
 import type { PromptSpec } from '../shared/types'
 import { APP_NAME } from './brand'
+import { compareVersions } from './chromium-status'
 
 /**
  * Updates come from GitHub Releases of this (public) repo. See electron-builder.yml `publish`.
  *
  * - Interactive check ("Check for updates…"): tells you the result either way, asks before downloading.
- * - Background check (on startup, then every few hours): silent unless there is a new version, then
- *   asks once per version "Update now / Later". Update now downloads and restarts; Later downloads
- *   in the background and installs on the next quit.
+ * - Background check (on startup, then hourly): silent unless there is a new version, then asks once
+ *   per version "Update now / Later". Update now downloads and restarts; Later downloads in the
+ *   background and installs on the next quit.
+ * - Security updates (the release is built on a newer Electron, i.e. carries Chromium security fixes)
+ *   are downloaded without asking, then the browser asks to restart, again every few hours until it is.
  */
 let busy = false
 let downloadedVersion: string | null = null
+let downloadedIsSecurity = false
+/** When the user last said "Later" to a security update. */
+let remindedAt = 0
+const REMIND_EVERY = 4 * 60 * 60 * 1000
 /** A version the background check already told the user about, so it isn't announced again. */
 let announcedVersion: string | null = null
 
@@ -62,23 +69,47 @@ function setProgress(fraction: number): void {
   for (const w of BrowserWindow.getAllWindows()) if (!w.isDestroyed()) w.setProgressBar(fraction)
 }
 
+/**
+ * Every release says which Electron it's built on ("Built on Electron 44.9.1." in its notes, written
+ * by the release workflow). A newer one than ours means Chromium security fixes.
+ */
+function isSecurityUpdate(releaseNotes: unknown): boolean {
+  const text = typeof releaseNotes === 'string' ? releaseNotes : Array.isArray(releaseNotes) ? releaseNotes.map((n) => n?.note ?? '').join(' ') : ''
+  const m = /Built on Electron (\d+\.\d+\.\d+)/.exec(stripHtml(text))
+  return !!m && compareVersions(m[1], process.versions.electron) > 0
+}
+
 function offerRestart(version: string): Promise<void> {
   restartOffer ??= askToRestart(version).finally(() => (restartOffer = null))
   return restartOffer
 }
 
 async function askToRestart(version: string): Promise<void> {
-  const choice = await message({
-    type: 'info',
-    buttons: ['Restart now', 'Later'],
-    defaultId: 0,
-    cancelId: 1,
-    title: 'Update ready',
-    message: `Version ${version} is ready to install.`,
-    detail: 'Restart the browser to finish updating. Your tabs will be restored.',
-  })
+  const choice = await message(
+    downloadedIsSecurity
+      ? {
+          type: 'warning',
+          buttons: ['Restart now', 'Later'],
+          defaultId: 0,
+          cancelId: 1,
+          title: 'Security update ready',
+          message: `${APP_NAME} ${version} fixes security problems in Chromium.`,
+          detail: "Restart now to be protected; your tabs will be restored. If you choose Later, it installs when you close the browser and you'll be reminded in a few hours.",
+        }
+      : {
+          type: 'info',
+          buttons: ['Restart now', 'Later'],
+          defaultId: 0,
+          cancelId: 1,
+          title: 'Update ready',
+          message: `Version ${version} is ready to install.`,
+          detail: 'Restart the browser to finish updating. Your tabs will be restored.',
+        },
+  )
   if (choice === 0) {
     setImmediate(() => getUpdater().quitAndInstall())
+  } else {
+    remindedAt = Date.now()
   }
 }
 
@@ -93,8 +124,6 @@ export async function checkForUpdates({ interactive }: { interactive: boolean })
     }
     return
   }
-  // Already downloaded: it installs on quit; only a check the user asked for brings the question back.
-  if (downloadedVersion) return interactive ? offerRestart(downloadedVersion) : undefined
   if (busy) {
     if (interactive) await message({ type: 'info', message: 'An update check is already in progress.' })
     return
@@ -107,6 +136,13 @@ export async function checkForUpdates({ interactive }: { interactive: boolean })
     const info = result?.updateInfo
     const available = !!info && !!result?.isUpdateAvailable
 
+    // Already downloaded (it installs on quit): a check the user asked for brings the restart question
+    // back, and so does a background check every few hours when it's a security update.
+    if (available && info.version === downloadedVersion) {
+      if (interactive || (downloadedIsSecurity && Date.now() - remindedAt > REMIND_EVERY)) await offerRestart(info.version)
+      return
+    }
+
     if (!available) {
       if (interactive) {
         await message({
@@ -116,6 +152,14 @@ export async function checkForUpdates({ interactive }: { interactive: boolean })
           detail: `${APP_NAME} ${app.getVersion()} is the latest version.`,
         })
       }
+      return
+    }
+
+    const security = isSecurityUpdate(info.releaseNotes)
+    if (security) {
+      // Fetched without asking; failures are shown only when the user asked for the check.
+      await download(autoUpdater, info.version, true)
+      await offerRestart(info.version)
       return
     }
 
@@ -170,7 +214,7 @@ export async function checkForUpdates({ interactive }: { interactive: boolean })
 }
 
 /** Downloads the update, showing progress on the taskbar button. */
-async function download(autoUpdater: AppUpdater, version: string): Promise<void> {
+async function download(autoUpdater: AppUpdater, version: string, security = false): Promise<void> {
   const onProgress = (p: { percent: number }) => setProgress(p.percent / 100)
   autoUpdater.on('download-progress', onProgress)
   try {
@@ -180,15 +224,16 @@ async function download(autoUpdater: AppUpdater, version: string): Promise<void>
     setProgress(-1)
   }
   downloadedVersion = version
+  downloadedIsSecurity = security
 }
 
-/** Checks on startup and then every few hours while the browser stays open. */
+/** Checks on startup and then hourly while the browser stays open. */
 export function startBackgroundUpdateChecks(enabled: () => boolean): void {
   const run = () => {
     if (enabled()) checkForUpdates({ interactive: false }).catch(() => {})
   }
   setTimeout(run, 10_000)
-  setInterval(run, 4 * 60 * 60 * 1000).unref()
+  setInterval(run, 60 * 60 * 1000).unref()
 }
 
 function stripHtml(html: string): string {

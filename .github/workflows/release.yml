@@ -29,8 +29,20 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          # Every release names the Electron it's built on: the browser compares that with its own and
+          # treats a newer one as a security update (downloaded right away, restart asked for).
+          lockver() { node -e "const l=JSON.parse(require('fs').readFileSync(0,'utf8'));console.log(l.packages['node_modules/electron'].version)"; }
+          electron=$(lockver < package-lock.json)
+          notes="Built on Electron $electron."
+          prev=$(gh release view --json tagName -q .tagName --repo "$GITHUB_REPOSITORY" 2>/dev/null || true)
+          if [ -n "$prev" ] && git fetch -q --depth=1 origin "refs/tags/$prev:refs/tags/$prev"; then
+            before=$(git show "$prev:package-lock.json" | lockver || true)
+            if [ -n "$before" ] && [ "$before" != "$electron" ]; then
+              notes="**Security update:** Chromium security fixes (Electron $before → $electron). $notes"
+            fi
+          fi
           gh release create "v${{ steps.version.outputs.version }}" --draft --target "$GITHUB_SHA" \
-            --title "v${{ steps.version.outputs.version }}" --generate-notes --repo "$GITHUB_REPOSITORY"
+            --title "v${{ steps.version.outputs.version }}" --notes "$notes" --generate-notes --repo "$GITHUB_REPOSITORY"
 
   build:
     needs: draft

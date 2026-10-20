@@ -1,18 +1,20 @@
 # Keeps Zirtola's Chromium patched without anyone having to merge anything.
-# Every day: if Electron has a new patch release in the current major version (these carry Chromium
+# Every 3 hours: if Electron has a new patch release in the current major version (these carry Chromium
 # security fixes), update to it, build, run the speed & stability benchmark, and only if all of that
 # passes, commit to main and start a release, so installed copies get it through "Check for updates".
-# Major versions (a new Chromium every ~8 weeks) are left for a person to test.
+# Major versions (a new Chromium every ~8 weeks) are left for a person to test: an issue is opened so
+# it isn't forgotten (Electron only patches its newest three majors).
 name: Electron security updates
 
 on:
   schedule:
-    - cron: '17 6 * * *'
+    - cron: '17 */3 * * *'
   workflow_dispatch:
 
 permissions:
   contents: write
   actions: write
+  issues: write
 
 concurrency:
   group: electron-security
@@ -64,3 +66,16 @@ jobs:
           git push origin HEAD:main
           # Pushes made with the workflow token don't trigger other workflows, so start the release directly.
           gh workflow run release.yml --ref main
+
+      - name: Open an issue when a new Electron major version is out
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          current=$(node -p "require('electron/package.json').version")
+          latest=$(npm view electron dist-tags.latest)
+          if [ "${latest%%.*}" -gt "${current%%.*}" ]; then
+            title="Electron ${latest%%.*} is out (Zirtola is on ${current%%.*})"
+            if [ -z "$(gh issue list --state open --search "in:title \"$title\"" --json number -q '.[].number')" ]; then
+              gh issue create --title "$title" --body "Electron $latest (a newer Chromium) is available. Zirtola is on $current. Electron only ships security fixes for its newest three major versions, so update, test (npm run bench) and release before ${current%%.*} falls out of support."
+            fi
+          fi
