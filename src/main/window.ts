@@ -75,8 +75,8 @@ export class BrowserWindowController {
       ...frameOptions(opts.incognito),
       webPreferences: {
         preload: path.join(__dirname, '..', 'preload', 'ui-preload.js'),
-        // The UI preload needs Node's require() for the extension toolbar element.
-        sandbox: false,
+        // Sandboxed like web pages (scripts/copy-static.js inlines the preload's one non-electron module).
+        sandbox: true,
         contextIsolation: true,
         nodeIntegration: false,
         spellcheck: false,

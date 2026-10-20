@@ -47,7 +47,9 @@ export function configureNetwork(ses: Session, blocker: AdBlocker): void {
   if (!ipcRegistered) {
     ipcRegistered = true
     // Read synchronously by the page preload in every frame, before any page script runs.
-    ipcMain.on('privacy:config', (event, origin: string) => {
+    ipcMain.on('privacy:config', (event, claimed: string) => {
+      // The frame's real origin, not the one it claims: a compromised renderer can't ask about other sites.
+      const origin = event.senderFrame?.origin ?? claimed
       event.returnValue = {
         gpc: getSettings().privacy.globalPrivacyControl,
         languages: acceptLanguages().split(','),

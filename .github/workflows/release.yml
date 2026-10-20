@@ -71,8 +71,23 @@ jobs:
           # No signing certificates yet (see docs/SPEC.md §7).
           CSC_IDENTITY_AUTO_DISCOVERY: 'false'
 
+  # The release is only published if the browser's security checks pass (scripts/security-check).
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      # Runner accounts can't use Chromium's sandbox helper (the check still verifies every page's
+      # sandbox setting, which is what the shipped app uses).
+      - run: xvfb-run -a npx electron --no-sandbox scripts/security-check
+
   publish:
-    needs: [draft, build]
+    needs: [draft, build, security]
     runs-on: ubuntu-latest
     steps:
       - name: Publish the release (makes it visible to "Check for updates")

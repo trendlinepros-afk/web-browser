@@ -55,6 +55,10 @@ jobs:
         # Runner accounts can't use Chromium's sandbox helper; the benchmark only loads its own page.
         run: xvfb-run -a npx electron --no-sandbox scripts/bench
 
+      - name: Security checks
+        if: steps.bump.outputs.changed == 'true'
+        run: xvfb-run -a npx electron --no-sandbox scripts/security-check
+
       - name: Commit to main and release
         if: steps.bump.outputs.changed == 'true'
         env:

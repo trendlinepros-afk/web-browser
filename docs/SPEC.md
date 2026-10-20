@@ -371,6 +371,21 @@ and `runtime` messaging all work.
   and file:// pages (Node reports their origin as "null"), which hung extension permission requests; fixed.
   Not yet done: code signing (updates are verified by SHA-512 from GitHub over HTTPS, but installers are unsigned),
   asar integrity validation, and loading the UI from a custom protocol instead of file://.
+- Hardening 2026-10-20: the browser UI window is now sandboxed like web pages (its preload's one non-electron
+  module is inlined at build time by `scripts/copy-static.js`); the `ui:cmd` channel only accepts the window's
+  own toolbar (before, a tab in that window could send commands, which a page that took over its renderer
+  through a Chromium bug could have used); `privacy:config` uses the frame's real origin; internal pages' CSP
+  adds `object-src 'none'; base-uri 'none'; form-action 'none'`.
+- **Security checks** (`npm run security`, `scripts/security-check`), run on PRs, before every release is
+  published and before the Electron security workflow commits: every view sandboxed and context-isolated; no
+  Node or browser API visible to pages; sandboxed renderers; site isolation (cross-site iframes and tabs in
+  separate processes); pages can't open file://, chrome:// or devtools:// URLs; the UI can't be navigated
+  away; UI/menu IPC from a web page is ignored; certificate errors aren't bypassed; pages can't launch other
+  apps; no permission granted without asking; HSTS preload enforced; MCP rejects missing/wrong tokens,
+  foreign Host headers and browser Origins, offers no evaluate tool unless enabled and never opens file://.
+- Asar integrity is not enabled on purpose: without code signing, malware that can rewrite app.asar (a per-user
+  install folder) can rewrite the unsigned .exe that holds the hash just as easily, so it would add risk of a
+  broken launch without adding protection. It becomes worthwhile together with code signing.
 - Updates download over HTTPS from GitHub Releases. `electron-updater` checks the SHA-512 from `latest.yml`.
 - Chromium security fixes arrive through Electron releases, and shipping them promptly is the most important
   ongoing security task. `.github/workflows/electron-security.yml` does it every 3 hours without anyone merging anything:

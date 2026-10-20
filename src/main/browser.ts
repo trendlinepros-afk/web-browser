@@ -237,7 +237,9 @@ export class Browser {
   private registerIpc(): void {
     ipcMain.on('ui:cmd', (event, name: string, ...args: unknown[]) => {
       const w = this.fromWebContents(event.sender)
-      if (!w) return
+      // Only the window's own toolbar may send commands. fromWebContents() also matches the tabs shown
+      // in that window, and a web page (even one that took over its renderer) must never drive the browser.
+      if (!w || event.sender !== w.win.webContents || event.senderFrame !== event.sender.mainFrame) return
       const tab = typeof args[0] === 'number' ? w.findTab(args[0]) : undefined
       switch (name) {
         case 'ready':

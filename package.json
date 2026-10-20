@@ -18,7 +18,8 @@
     "dist": "npm run build && npm run filters && electron-builder",
     "release": "npm run build && npm run filters && electron-builder --publish always",
     "filters": "node scripts/build-filters.js",
-    "bench": "npm run build && electron scripts/bench"
+    "bench": "npm run build && electron scripts/bench",
+    "security": "npm run build && electron scripts/security-check"
   },
   "dependencies": {
     "@ghostery/adblocker": "^2.20.1",
