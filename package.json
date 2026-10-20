@@ -12,7 +12,8 @@
   },
   "homepage": "https://github.com/trendlinepros-afk/web-browser#readme",
   "scripts": {
-    "build": "node scripts/clean.js && tsc -p tsconfig.json && tsc -p tsconfig.renderer.json && node scripts/copy-static.js",
+    "postinstall": "node scripts/patch-deps.js",
+    "build": "node scripts/patch-deps.js && node scripts/clean.js && tsc -p tsconfig.json && tsc -p tsconfig.renderer.json && node scripts/copy-static.js",
     "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.renderer.json --noEmit",
     "start": "npm run build && electron .",
     "dist": "npm run build && npm run filters && electron-builder",

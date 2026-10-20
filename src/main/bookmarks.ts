@@ -203,7 +203,7 @@ export class BookmarkStore {
 
   /** Stores the page's icon (as a data: URL) on every bookmark of that page, fetched through the tab's session. */
   async captureFavicon(pageUrl: string, faviconUrl: string | null, ses: Session): Promise<void> {
-    if (!faviconUrl) return
+    if (!faviconUrl || !/^(https?:|data:image\/)/i.test(faviconUrl)) return
     const targets = this.findByUrl(pageUrl).filter((b) => !b.favicon)
     if (targets.length === 0) return
     try {

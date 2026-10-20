@@ -1,4 +1,4 @@
-import { session } from 'electron'
+import { session, webContents } from 'electron'
 import { ElectronChromeExtensions } from 'electron-chrome-extensions'
 import { installChromeWebStore, updateExtensions } from 'electron-chrome-web-store'
 import path from 'node:path'
@@ -77,7 +77,26 @@ export async function setupExtensions(browser: Browser): Promise<ElectronChromeE
     popup.browserWindow?.focus()
   })
 
-  await installChromeWebStore({ session: ses, autoUpdate: true })
+  await installChromeWebStore({
+    session: ses,
+    autoUpdate: true,
+    // Like Chrome: nothing is installed without you saying so.
+    beforeInstall: async (details: { id: string; localizedName: string; manifest: chrome.runtime.Manifest; frame: Electron.WebFrameMain }) => {
+      const wc = webContents.fromFrame(details.frame)
+      const w = (wc && browser.findTabByWebContents(wc)?.window) || browser.lastFocused
+      if (!w || details.frame.origin !== 'https://chromewebstore.google.com') return { action: 'deny' as const }
+      const permissions = [...(details.manifest.permissions ?? []), ...((details.manifest as { host_permissions?: string[] }).host_permissions ?? [])]
+      const choice = await w.popup.prompt({
+        kind: 'info',
+        title: `Add "${details.localizedName || details.manifest.name}"?`,
+        message: permissions.length ? `It will be able to use: ${permissions.slice(0, 12).join(', ')}${permissions.length > 12 ? ', …' : ''}` : 'It asks for no special permissions.',
+        buttons: ['Add extension', 'Cancel'],
+        defaultId: 0,
+        cancelId: 1,
+      })
+      return { action: choice === 0 ? ('allow' as const) : ('deny' as const) }
+    },
+  })
   return extensions
 }
 

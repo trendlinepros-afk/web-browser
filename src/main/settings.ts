@@ -134,5 +134,10 @@ export function flushSettings(): void {
   writeTimer = null
   if (!cached) return
   fs.mkdirSync(path.dirname(file()), { recursive: true })
-  fs.writeFileSync(file(), JSON.stringify(cached, null, 2))
+  // Write a new file and swap it in, so a crash mid-write never leaves a broken settings file
+  // (which would quietly reset everything, including the MCP token and Magnet Torrent setup).
+  // Mode 0600: it holds secrets (only matters on macOS/Linux; Windows uses the profile folder's ACL).
+  const tmp = `${file()}.tmp`
+  fs.writeFileSync(tmp, JSON.stringify(cached, null, 2), { mode: 0o600 })
+  fs.renameSync(tmp, file())
 }

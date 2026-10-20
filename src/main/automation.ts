@@ -9,7 +9,9 @@ const WORLD_ID = 1717
 
 async function run<T>(wc: WebContents, code: string): Promise<T> {
   // Chromium replaces thrown errors with a generic message, so carry the real one back as data.
-  const wrapped = `(() => { try { return { ok: true, value: (${code}) } } catch (e) { return { ok: false, error: String(e && e.message || e) } } })()`
+  // Checked again inside the page, so a page that navigated away after the tab was checked (to a local
+  // file or an extension page) is never read.
+  const wrapped = `(() => { if (!/^(https?|about|data):$/.test(location.protocol)) return { ok: false, error: "Claude can only access web pages." }; try { return { ok: true, value: (${code}) } } catch (e) { return { ok: false, error: String(e && e.message || e) } } })()`
   const result = (await wc.executeJavaScriptInIsolatedWorld(WORLD_ID, [{ code: wrapped }], true)) as
     | { ok: true; value: T }
     | { ok: false; error: string }

@@ -119,7 +119,11 @@ export class BrowserMcpServer {
    */
   private webTab(id?: number): Tab {
     const tab = this.tab(id)
-    if (tab.url && !isWebURL(tab.url)) throw new Error(`Tab ${tab.id} shows a ${new URL(tab.url).protocol.replace(':', '')} page, which Claude can't access. Only web pages are allowed.`)
+    // Check what the tab really shows: tab.url is updated when a navigation starts, so after one that
+    // never loads a page (a download, a 204) it can name a web address while a local page is shown.
+    for (const url of [tab.url, shownURL(tab)]) {
+      if (url && !isWebURL(url)) throw new Error(`Tab ${tab.id} shows a ${url.split(':')[0]} page, which Claude can't access. Only web pages are allowed.`)
+    }
     return tab
   }
 
@@ -161,7 +165,8 @@ export class BrowserMcpServer {
           t.incognito ? 'incognito' : '',
           t.pinned ? 'pinned' : '',
         ].filter(Boolean)
-        const shown = !t.url || isWebURL(t.url) ? `${t.title || '(untitled)'} — ${t.url || 'about:blank'}` : '(a local or extension page Claude can\'t access)'
+        const url = shownURL(t) || t.url
+        const shown = (!url || isWebURL(url)) && (!t.url || isWebURL(t.url)) ? `${t.title || '(untitled)'} — ${url || 'about:blank'}` : '(a local or extension page Claude can\'t access)'
         return `[${t.id}] ${shown}${flags.length ? ` (${flags.join(', ')})` : ''} window=${t.window.id}`
       })
       return text(lines.join('\n') || 'No tabs open.')
@@ -201,14 +206,22 @@ export class BrowserMcpServer {
         action: z.enum(['back', 'forward', 'reload']).optional(),
       },
       async ({ tab_id, url, action }) => {
-        const tab = this.tab(tab_id)
+        const tab = this.webTab(tab_id)
         const wc = tab.wake()
+        // Back/forward may only move to a web page (not into a local file or extension page in history).
+        const step = (offset: number) => {
+          const history = wc.navigationHistory
+          const entry = history.getEntryAtIndex(history.getActiveIndex() + offset)
+          if (entry && !isWebURL(entry.url)) throw new Error(`That history entry is a ${entry.url.split(':')[0]} page, which Claude can't access.`)
+        }
         if (url) {
           await auto.navigateAndWait(wc, webTarget(url))
         } else if (action === 'back') {
+          step(-1)
           wc.navigationHistory.goBack()
           await auto.settle(wc)
         } else if (action === 'forward') {
+          step(1)
           wc.navigationHistory.goForward()
           await auto.settle(wc)
         } else if (action === 'reload') {
@@ -217,7 +230,8 @@ export class BrowserMcpServer {
         } else {
           throw new Error('Pass url or action.')
         }
-        return text(`Tab ${tab.id}: ${wc.getTitle()} — ${wc.getURL()}`)
+        const now = wc.mainFrame.url
+        return text(isWebURL(now) ? `Tab ${tab.id}: ${wc.getTitle()} — ${now}` : `Tab ${tab.id} now shows a page Claude can't access.`)
       },
     )
 
@@ -345,6 +359,12 @@ function readBody(req: http.IncomingMessage, max = 5 * 1024 * 1024): Promise<str
     req.on('end', () => resolve(Buffer.concat(chunks).toString('utf8')))
     req.on('error', reject)
   })
+}
+
+/** The address of the document a tab is showing right now (empty while it sleeps). */
+function shownURL(tab: Tab): string {
+  const wc = tab.webContents
+  return wc && !wc.isDestroyed() ? wc.mainFrame.url : ''
 }
 
 /** Web pages Claude may open and read: http(s), and blank/data pages. */

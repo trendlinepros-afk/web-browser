@@ -38,6 +38,7 @@ export function applyCommandLineHardening(): void {
 }
 
 let ipcRegistered = false
+const LOCAL_READS = new Set(['xhr', 'subFrame', 'object', 'webSocket', 'ping', 'cspReport', 'other'])
 
 /**
  * Wires every network hook for a browsing session. Electron allows a single listener per
@@ -67,6 +68,10 @@ export function configureNetwork(ses: Session, blocker: AdBlocker): void {
   blocker.enableInSession(ses)
 
   ses.webRequest.onBeforeRequest({ urls: ['<all_urls>'] }, (details, callback) => {
+    // Electron lets file:// pages read other files with fetch/XHR or a same-origin iframe (Chrome
+    // doesn't), so a downloaded .html file could read your documents and send them anywhere.
+    // Opening a local file as a page, and its images, scripts and styles, still work.
+    if (details.url.startsWith('file:') && LOCAL_READS.has(details.resourceType)) return callback({ cancel: true })
     callback(blocker.onBeforeRequest(details))
   })
 

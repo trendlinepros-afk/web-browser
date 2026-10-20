@@ -231,7 +231,9 @@ export class Tab {
       changed()
     })
     wc.on('page-favicon-updated', (_e, favicons) => {
-      this.favicon = favicons[0] ?? null
+      // The page picks this URL. Only web and inline images: a file:// icon would make the browser
+      // read local files (or, on Windows, connect to an attacker's file share and send your login hash).
+      this.favicon = favicons.find((u) => /^(https?:|data:image\/)/i.test(u)) ?? null
       // Bookmarks keep a local copy of the icon (imported ones may not have one yet).
       void this.window.browser.bookmarks.captureFavicon(this.url, this.favicon, this.session)
       changed()

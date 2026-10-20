@@ -95,9 +95,16 @@ export class DelugeClient {
   private cookie = ''
   private nextId = 1
 
+  /** The server the session cookie belongs to: it's never sent to a different address. */
+  private cookieFor = ''
+
   private endpoint(): string {
     const url = endpointFor(getSettings().torrents.url)
     if (!url) throw new Error('Set your Deluge Web UI address in Settings → Magnet Torrent.')
+    if (url !== this.cookieFor) {
+      this.cookie = ''
+      this.cookieFor = url
+    }
     return url
   }
 
@@ -132,6 +139,7 @@ export class DelugeClient {
 
   /** Calls a method, signing in first (or again, when the session expired). */
   private async call<T>(method: string, params: unknown[] = []): Promise<T> {
+    this.endpoint()
     if (!this.cookie) await this.login()
     try {
       return await this.rawCall<T>(method, params)

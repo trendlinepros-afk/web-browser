@@ -22,6 +22,9 @@ jobs:
       version: ${{ steps.version.outputs.version }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The job token isn't left in .git/config, where install scripts could read it.
+          persist-credentials: false
       - id: version
         name: Compute version
         run: echo "version=$(node -p "require('./package.json').version.split('.').slice(0, 2).join('.')").${{ github.run_number }}" >> "$GITHUB_OUTPUT"
@@ -53,6 +56,9 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The job token isn't left in .git/config, where install scripts could read it.
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -76,6 +82,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The job token isn't left in .git/config, where install scripts could read it.
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 22

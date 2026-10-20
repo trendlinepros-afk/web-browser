@@ -25,6 +25,10 @@ fs.writeFileSync(
   }),
 )
 
+// A look-alike of the Chrome Web Store's address, served locally (see the web store check).
+const LOOKALIKE = 'chromewebstore.google.com.evil.test'
+app.commandLine.appendSwitch('host-resolver-rules', `MAP ${LOOKALIKE} 127.0.0.1`)
+
 // Pages can't open other apps: count every attempt.
 const externalOpens = []
 shell.openExternal = async (url) => void externalOpens.push(url)
@@ -37,6 +41,7 @@ const pages = {
 }
 const server = http
   .createServer((req, res) => {
+    if (req.url.startsWith('/204')) return res.writeHead(204).end()
     const page = pages[req.url.split('?')[0]] ?? pages['/']
     res.writeHead(200, { 'content-type': 'text/html' }).end(typeof page === 'function' ? page(server.address().port) : page)
   })
@@ -97,7 +102,7 @@ async function openTab(url) {
   await ui(`window.browser.newTab(${JSON.stringify(url)})`)
   let wc
   await waitFor(async () => {
-    wc = webContents.getAllWebContents().find((w) => !before.has(w.id) && w.getType() !== 'backgroundPage' && !/^(file|devtools|chrome-extension):/.test(w.getURL()))
+    wc = webContents.getAllWebContents().find((w) => !before.has(w.id) && w.getType() !== 'backgroundPage' && !/^(devtools|chrome-extension):/.test(w.getURL()) && !w.getURL().includes('/dist/renderer/'))
     return !!wc && !wc.isLoading() && wc.getURL() !== ''
   })
   assert(wc, `tab for ${url} didn't open`)
@@ -209,6 +214,70 @@ app.whenReady().then(() =>
         assert(upgraded?.url?.startsWith('https://accounts.google.com'), `not upgraded: ${JSON.stringify(upgraded)}`)
       })
 
+      await check('look-alike Web Store sites get no install powers; uninstall ids are validated', async () => {
+        if (!tlsServer) return 'skip'
+        // Trust the self-signed certificate for the look-alike host only, so the page loads over https.
+        session.fromPartition('persist:default').setCertificateVerifyProc((req, cb) => cb(req.hostname === LOOKALIKE ? 0 : -3))
+        const fake = await openTab(`https://${LOOKALIKE}:${tlsServer.address().port}/`)
+        await sleep(500)
+        const apis = await fake.executeJavaScript(`[typeof window.electronWebstore, typeof window.electronManagement, typeof globalThis.chrome?.webstorePrivate].join()`)
+        assert(apis === 'undefined,undefined,undefined', `look-alike page got web store APIs: ${apis}`)
+        const store = require('electron-chrome-web-store')
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zirtola-ext-'))
+        fs.mkdirSync(path.join(dir, 'Extensions'))
+        fs.mkdirSync(path.join(dir, 'victim'))
+        await store.uninstallExtension('../victim', { session: session.fromPartition('persist:default'), extensionsPath: path.join(dir, 'Extensions') }).catch(() => {})
+        assert(fs.existsSync(path.join(dir, 'victim')), 'uninstall with "../victim" deleted a folder outside Extensions')
+        session.fromPartition('persist:default').setCertificateVerifyProc(null)
+      })
+
+      await check("a hijacked page can't act as an extension or as the Web Store", async () => {
+        // Call the handlers directly with a forged event, as a page that took over its renderer could.
+        const invoke = (channel, event, ...args) => {
+          const handler = ipcMain._invokeHandlers?.get(channel)
+          assert(handler, `no ${channel} handler (Electron internals changed: update this check)`)
+          return Promise.resolve(handler(event, ...args))
+        }
+        const ses = session.fromPartition('persist:default')
+        const extDir = fs.mkdtempSync(path.join(os.tmpdir(), 'zirtola-ext-'))
+        fs.writeFileSync(path.join(extDir, 'manifest.json'), JSON.stringify({ manifest_version: 3, name: 'Check', version: '1', permissions: ['tabs'] }))
+        const ext = await ses.extensions.loadExtension(extDir)
+        const fromPage = { type: 'frame', sender: page, senderFrame: page.mainFrame }
+        const spoofed = await invoke('crx-msg', fromPage, ext.id, 'tabs.query', {}).then((r) => r, (e) => e)
+        assert(spoofed instanceof Error, `a web page used extension ${ext.id}'s tabs API: ${JSON.stringify(spoofed)?.slice(0, 120)}`)
+        const remote = await invoke('crx-msg-remote', fromPage, '_self', 'browserAction.getState', '_self').then((r) => r, (e) => e)
+        assert(remote instanceof Error, 'a web page used the toolbar-only extension channel')
+        await ses.cookies.set({ url: site, name: 'session', value: SECRET, httpOnly: true })
+        const fromWorker = { type: 'service-worker', session: ses, serviceWorker: { scope: `chrome-extension://${ext.id}/` } }
+        const cookies = await invoke('crx-msg', fromWorker, ext.id, 'cookies.getAll', {}).then((r) => r, (e) => e)
+        assert(cookies instanceof Error, `an extension without the "cookies" permission read cookies: ${JSON.stringify(cookies)?.slice(0, 120)}`)
+        ses.extensions.removeExtension(ext.id)
+        const lookalike = { type: 'frame', sender: page, senderFrame: { origin: `https://${LOOKALIKE}`, url: `https://${LOOKALIKE}/`, isDestroyed: () => false } }
+        const install = await invoke('chromeWebstore.beginInstall', lookalike, { id: 'a'.repeat(32), manifest: '{}' }).catch((e) => e)
+        assert(install === undefined, `the Web Store install API answered a look-alike site: ${JSON.stringify(install)}`)
+      })
+
+      await check('a local .html file cannot read other local files', async () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zirtola-local-'))
+        fs.writeFileSync(path.join(dir, 'secret.txt'), SECRET)
+        const target = 'file://' + path.join(dir, 'secret.txt').replace(/\\/g, '/')
+        fs.writeFileSync(path.join(dir, 'attachment.html'), `<!doctype html><title>attachment</title><script>
+          const out = []
+          fetch(${JSON.stringify(target)}).then(r => r.text()).then(t => out.push('fetch:' + t), () => out.push('fetch:blocked')).finally(() => {
+            const x = new XMLHttpRequest()
+            x.onload = () => { out.push('xhr:' + x.responseText); document.title = out.join('|') }
+            x.onerror = () => { out.push('xhr:blocked'); document.title = out.join('|') }
+            try { x.open('GET', ${JSON.stringify(target)}); x.send() } catch { x.onerror() }
+          })
+        </script><iframe id=f src=${JSON.stringify(target)}></iframe>`)
+        const local = await openTab('file://' + path.join(dir, 'attachment.html').replace(/\\/g, '/'))
+        await waitFor(async () => (await local.executeJavaScript('document.title')).includes('xhr:'), 5000)
+        const title = await local.executeJavaScript('document.title')
+        assert(!title.includes(SECRET), `local page read another file: ${title}`)
+        const framed = await local.executeJavaScript(`(() => { try { return document.getElementById('f').contentDocument?.body?.innerText ?? '' } catch { return '' } })()`)
+        assert(!framed.includes(SECRET), 'local page read another file through an iframe')
+      })
+
       await check('the browser UI cannot be navigated to a web page', async () => {
         const before = mainWin().webContents.getURL()
         await ui(`location.href = ${JSON.stringify(`${site}/secret`)}`).catch(() => {})
@@ -275,6 +344,20 @@ app.whenReady().then(() =>
         const text = JSON.stringify(res.json)
         assert(!text.includes(MCP_TOKEN), 'MCP read a local file')
         assert(!webContents.getAllWebContents().some((w) => w.getURL().startsWith('file:') && w.getURL().includes('settings.json')), 'MCP opened a local file')
+      })
+      await check("MCP can't read a local page left showing after a navigation that didn't load", async () => {
+        const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zirtola-local-'))
+        fs.writeFileSync(path.join(dir, 'notes.html'), `<!doctype html><title>notes</title><p>${SECRET}</p>`)
+        await openTab('file://' + path.join(dir, 'notes.html').replace(/\\/g, '/'))
+        const id = (await tabIds()).pop()
+        await ui(`window.browser.navigate(${id}, ${JSON.stringify(`${site}/204`)})`)
+        await sleep(1500)
+        for (const name of ['read_page', 'snapshot']) {
+          const res = JSON.stringify((await mcpCall(name, { tab_id: id })).json)
+          assert(!res.includes(SECRET), `${name} read the local page: ${res.slice(0, 160)}`)
+        }
+        const listed = JSON.stringify((await mcp({ jsonrpc: '2.0', id: 1, method: 'tools/call', params: { name: 'list_tabs', arguments: {} } })).json)
+        assert(!listed.includes(dir.replace(/\\/g, '/')), 'list_tabs showed the local file path')
       })
     } catch (err) {
       results.push({ name: 'harness', ok: false })

@@ -32,6 +32,8 @@ export class TorrentSender {
   private declinedSetup = false
   /** Links sent in the last few seconds, so a double-click (or a page firing twice) sends once. */
   private recent = new Map<string, number>()
+  /** A "Send to Deluge?" question is on screen; others are dropped so a page can't pile them up. */
+  private confirming = false
 
   constructor(private readonly browser: Browser) {}
 
@@ -49,18 +51,23 @@ export class TorrentSender {
       if (item.getMimeType() !== 'application/x-bittorrent' && !/\.torrent$/i.test(name)) return
       event.preventDefault()
       const w = (wc && (this.browser.findTabByWebContents(wc)?.window ?? this.browser.fromWebContents(wc))) || this.browser.lastFocused
-      void this.sendTorrentFile(item.getURL(), name, ses, w ?? undefined)
+      const url = item.getURL()
+      // A download you didn't click (started by a script or a hidden frame) is asked about first.
+      if (item.hasUserGesture()) void this.sendTorrentFile(url, name, ses, w ?? undefined)
+      else void this.confirm(name.replace(/\.torrent$/i, ''), w ?? undefined, () => this.sendTorrentFile(url, name, ses, w ?? undefined))
     })
   }
 
   /**
    * A page asked to open a link in another app. Returns true when it was a magnet link and has been
-   * dealt with (sent, or the user was asked to set up Deluge).
+   * dealt with (sent, or the user was asked to set up Deluge). Magnet links from a page's own frame
+   * are sent right away; ones from an embedded frame (an ad, a hidden iframe) are asked about first.
    */
-  handleExternal(url: string, w: BrowserWindowController | undefined): boolean {
+  handleExternal(url: string, w: BrowserWindowController | undefined, fromMainFrame = true): boolean {
     if (!isMagnet(url)) return false
     if (this.active) {
-      void this.sendMagnet(url, w)
+      if (fromMainFrame) void this.sendMagnet(url, w)
+      else void this.confirm(magnetName(url), w, () => this.sendMagnet(url, w))
       return true
     }
     if (!w || this.declinedSetup) return false
@@ -109,6 +116,25 @@ export class TorrentSender {
     }
     if (isMagnet(url)) void this.sendMagnet(url, w)
     else void this.sendTorrentFile(url, decodeURIComponent(new URL(url).pathname.split('/').pop() ?? ''), ses, w)
+  }
+
+  private async confirm(name: string, w: BrowserWindowController | undefined, send: () => Promise<void>): Promise<void> {
+    const target = w ?? this.browser.lastFocused
+    if (!target || this.confirming) return
+    this.confirming = true
+    try {
+      const choice = await target.popup.prompt({
+        kind: 'info',
+        title: 'Send to Deluge?',
+        message: `This page wants to send "${name}" to your Deluge server.`,
+        buttons: ['Send', 'Cancel'],
+        defaultId: 1,
+        cancelId: 1,
+      })
+      if (choice === 0) await send()
+    } finally {
+      this.confirming = false
+    }
   }
 
   private isRepeat(key: string): boolean {

@@ -25,6 +25,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The job token isn't left in .git/config, where install scripts could read it.
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -45,6 +48,28 @@ jobs:
             echo "changed=true" >> "$GITHUB_OUTPUT"
             echo "version=$latest" >> "$GITHUB_OUTPUT"
           fi
+
+      # Every installed package must carry a valid npm registry signature (runs every time, so a broken
+      # check shows up on the next run, not only when there's an update).
+      - name: Verify package signatures
+        run: npm audit signatures
+
+      - name: Check the update is only Electron
+        if: steps.bump.outputs.changed == 'true'
+        run: |
+          # Only package.json/package-lock.json may change, and in the lockfile only Electron and its own
+          # direct dependencies (@electron/get etc.).
+          changed=$(git diff --name-only)
+          [ "$changed" = "$(printf 'package-lock.json\npackage.json')" ] || { echo "unexpected files changed: $changed"; exit 1; }
+          node -e "
+            const { execSync } = require('child_process')
+            const before = JSON.parse(execSync('git show HEAD:package-lock.json', { maxBuffer: 1e8 })).packages
+            const after = JSON.parse(require('fs').readFileSync('package-lock.json', 'utf8')).packages
+            const keys = new Set([...Object.keys(before), ...Object.keys(after)])
+            const own = new Set(['', 'node_modules/electron', ...Object.keys(after['node_modules/electron'].dependencies ?? {}).map((d) => 'node_modules/' + d)])
+            const diff = [...keys].filter((k) => JSON.stringify(before[k]) !== JSON.stringify(after[k]) && !own.has(k) && !k.startsWith('node_modules/electron/'))
+            if (diff.length) { console.error('lockfile changes beyond electron:', diff.join(', ')); process.exit(1) }
+          "
 
       - name: Type-check and build
         if: steps.bump.outputs.changed == 'true'
@@ -67,7 +92,7 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git commit -am "Electron ${{ steps.bump.outputs.version }} (Chromium security update)"
-          git push origin HEAD:main
+          git push "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" HEAD:main
           # Pushes made with the workflow token don't trigger other workflows, so start the release directly.
           gh workflow run release.yml --ref main
 
