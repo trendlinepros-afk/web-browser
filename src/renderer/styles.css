@@ -495,14 +495,27 @@ body.frame-integrated.platform-darwin #mark {
   white-space: nowrap;
   overflow: hidden;
   pointer-events: none;
-  -webkit-mask-image: linear-gradient(90deg, #000 92%, transparent);
 }
 #address-display .host {
   color: var(--fg);
   font-weight: 600;
+  /* A long host loses its start, never its end: the registrable domain stays visible. */
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  direction: rtl;
+  text-overflow: ellipsis;
+}
+#address-display .host > span {
+  unicode-bidi: isolate;
 }
 #address-display .rest {
   color: var(--faint);
+  /* The path gives way first, and fades out where it's cut (the host never fades). */
+  flex: 0 10000 auto;
+  min-width: 0;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(90deg, #000 85%, transparent);
 }
 #address-form.show-display #address {
   color: transparent;

@@ -313,6 +313,12 @@ function renderShield(tab: TabInfo | undefined): void {
   shieldBtn.title = tab.blockingActive ? `${tab.blocked} ads & trackers blocked on this page` : 'Blocking is off for this site'
 }
 
+function hostSpan(host: string): HTMLElement {
+  const outer = Object.assign(document.createElement('span'), { className: 'host' })
+  outer.append(Object.assign(document.createElement('span'), { dir: 'ltr', textContent: host }))
+  return outer
+}
+
 /** Shows the site's host prominently (and the rest faintly) while the address isn't being edited. */
 let displayedFor = '\0'
 function renderAddressDisplay(url: string): void {
@@ -340,7 +346,9 @@ function renderAddressDisplay(url: string): void {
   addressDisplay.replaceChildren()
   if (show) {
     addressDisplay.append(
-      Object.assign(document.createElement('span'), { className: 'host', textContent: host }),
+      // The host is clipped from the left when it doesn't fit, so the real domain at its end always shows
+      // (accounts.google.com.<lots of text>.evil.example must never read as accounts.google.com).
+      hostSpan(host),
       Object.assign(document.createElement('span'), { className: 'rest', textContent: rest }),
     )
   }

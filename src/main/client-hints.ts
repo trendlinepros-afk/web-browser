@@ -95,19 +95,25 @@ export function needsLearning(): boolean {
 /** The page preload reports navigator.userAgentData's real values; they become the source of truth. */
 export function learnFromRenderer(values: Record<string, unknown>): void {
   const current = uaMetadata()
-  const brands = values.brands as BrandVersion[] | undefined
-  const fullVersionList = values.fullVersionList as BrandVersion[] | undefined
+  // The values come from a renderer, which a hijacked page controls: accept only short plain strings
+  // (they end up in request headers), or nothing at all.
+  const str = (v: unknown): v is string => typeof v === 'string' && v.length <= 64 && /^[\x20-\x7e]*$/.test(v)
+  const brandList = (v: unknown): BrandVersion[] | null =>
+    Array.isArray(v) && v.length > 0 && v.length <= 8 && v.every((b) => b && str(b.brand) && str(b.version)) ? v.map((b) => ({ brand: b.brand, version: b.version })) : null
+  const brands = brandList(values.brands)
+  const fullVersionList = brandList(values.fullVersionList)
+  const formFactors = Array.isArray(values.formFactors) && values.formFactors.length <= 8 && values.formFactors.every(str) ? (values.formFactors as string[]) : null
   metadata = {
     ...current,
-    ...(Array.isArray(brands) && brands.length ? { brands } : {}),
-    ...(Array.isArray(fullVersionList) && fullVersionList.length ? { fullVersionList } : {}),
-    platform: typeof values.platform === 'string' ? values.platform : current.platform,
-    platformVersion: typeof values.platformVersion === 'string' ? values.platformVersion : current.platformVersion,
-    architecture: typeof values.architecture === 'string' ? values.architecture : current.architecture,
-    bitness: typeof values.bitness === 'string' ? values.bitness : current.bitness,
-    model: typeof values.model === 'string' ? values.model : current.model,
+    ...(brands ? { brands } : {}),
+    ...(fullVersionList ? { fullVersionList } : {}),
+    platform: str(values.platform) ? values.platform : current.platform,
+    platformVersion: str(values.platformVersion) ? values.platformVersion : current.platformVersion,
+    architecture: str(values.architecture) ? values.architecture : current.architecture,
+    bitness: str(values.bitness) ? values.bitness : current.bitness,
+    model: str(values.model) ? values.model : current.model,
     wow64: typeof values.wow64 === 'boolean' ? values.wow64 : current.wow64,
-    formFactors: Array.isArray(values.formFactors) ? (values.formFactors as string[]) : current.formFactors,
+    formFactors: formFactors ?? current.formFactors,
   }
   try {
     fs.writeFileSync(cacheFile(), JSON.stringify(metadata))

@@ -41,8 +41,27 @@ const isExtension = (origin: string) => origin.startsWith('chrome-extension://')
 /** Direct hardware access from web pages is off in Stage 1. */
 const DEVICE_ACCESS = new Set(['hid', 'serial', 'usb', 'bluetooth'])
 
-// Decisions are kept for the life of the app (persisted per-site settings arrive in Stage 2).
-const decisions = new Map<string, boolean>()
+// Decisions are kept for the life of the app (persisted per-site settings arrive in Stage 2), and per
+// session: what you allow in a private window never carries over to normal windows, or back.
+const sessionDecisions = new WeakMap<Session, Map<string, boolean>>()
+function decisionsFor(ses: Session): Map<string, boolean> {
+  let map = sessionDecisions.get(ses)
+  if (!map) sessionDecisions.set(ses, (map = new Map()))
+  return map
+}
+
+/** Blank, srcdoc and data: frames have no address of their own; a decision can't be kept for them. */
+const isOpaque = (origin: string) => /^(about:|data:|null$)/.test(origin) || origin === ''
+
+/** The site asking: its real origin, never a frame URL like about:blank that every site shares. */
+function requestOrigin(wc: WebContents | null, details: Electron.PermissionRequest | Electron.MediaAccessPermissionRequest): string {
+  const media = (details as Electron.MediaAccessPermissionRequest).securityOrigin
+  if (media) return originOf(media)
+  const origin = originOf(details.requestingUrl ?? '')
+  // A blank main frame belongs to whoever opened it (window.open): use the frame's real origin.
+  if (isOpaque(origin) && details.isMainFrame && wc && !wc.isDestroyed()) return originOf(wc.mainFrame.origin)
+  return origin
+}
 
 function originOf(url: string): string {
   try {
@@ -83,8 +102,9 @@ const WEB_NAMES: Record<string, string[]> = {
  * "denied", but a browser reports "prompt" until you decide, and an all-denied profile is a
  * classic bot signature. The page preload reports these as "prompt"; asking still shows our dialog.
  */
-export function undecidedPermissions(url: string): string[] {
+export function undecidedPermissions(ses: Session, url: string): string[] {
   const origin = originOf(url)
+  const decisions = decisionsFor(ses)
   const out: string[] = []
   for (const [permission, names] of Object.entries(WEB_NAMES)) {
     if (!decisions.has(`${origin}|${permission}`)) out.push(...names)
@@ -93,17 +113,21 @@ export function undecidedPermissions(url: string): string[] {
 }
 
 export function configureSession(ses: Session, browser: Browser): void {
+  const decisions = decisionsFor(ses)
   ses.setPermissionRequestHandler(async (wc: WebContents | null, permission, callback, details) => {
-    const origin = originOf(details.requestingUrl ?? wc?.getURL() ?? '')
+    const origin = requestOrigin(wc, details)
     if (permission === 'openExternal') {
       // Links to other apps. Magnet links can go to Deluge (torrents.ts); the rest stay blocked.
       const url = (details as Electron.OpenExternalPermissionRequest).externalURL ?? ''
-      const w = wc ? (browser.findTabByWebContents(wc)?.window ?? browser.fromWebContents(wc)) : undefined
-      if (browser.torrents.handleExternal(url, w ?? browser.lastFocused ?? undefined, details.isMainFrame)) return callback(false)
+      const tab = wc ? browser.findTabByWebContents(wc) : undefined
+      const w = tab?.window ?? (wc ? browser.fromWebContents(wc) : undefined)
+      // Sent straight away only when you just clicked in the page itself (not an embedded frame).
+      const clicked = details.isMainFrame && !!tab && Date.now() - tab.lastUserInputAt < 3000
+      if (browser.torrents.handleExternal(url, w ?? browser.lastFocused ?? undefined, clicked)) return callback(false)
       return callback(isExtension(origin))
     }
     if (ALWAYS_ALLOW.has(permission) || (isExtension(origin) && !ASK_EXTENSIONS_TOO.has(permission))) return callback(true)
-    if (!(permission in ASK)) return callback(false)
+    if (!(permission in ASK) || isOpaque(origin)) return callback(false)
 
     const key = `${origin}|${permission}`
     const remembered = decisions.get(key)
@@ -142,6 +166,7 @@ export function configureSession(ses: Session, browser: Browser): void {
 
   ses.setPermissionCheckHandler((_wc, permission, requestingOrigin) => {
     const origin = originOf(requestingOrigin)
+    if (isOpaque(origin)) return ALWAYS_ALLOW.has(permission) || (!(permission in ASK) && !DEVICE_ACCESS.has(permission))
     if (ALWAYS_ALLOW.has(permission) || (isExtension(origin) && !ASK_EXTENSIONS_TOO.has(permission))) return true
     const remembered = decisions.get(`${origin}|${permission}`)
     if (remembered !== undefined) return remembered

@@ -3,7 +3,7 @@
 // protections that keep web pages away from your files, your other sites and the browser itself:
 // sandboxing, site isolation, navigation and IPC guards, certificate errors, external apps,
 // permissions and the MCP server. Any failure exits non-zero.
-const { app, BrowserWindow, webContents, ipcMain, shell, session } = require('electron')
+const { app, BrowserWindow, Menu, webContents, ipcMain, shell, session } = require('electron')
 const { execFileSync } = require('node:child_process')
 const fs = require('node:fs')
 const http = require('node:http')
@@ -91,7 +91,7 @@ const assert = (cond, msg) => {
   if (!cond) throw new Error(msg)
 }
 
-const mainWin = () => BrowserWindow.getAllWindows().find((w) => w.webContents.getURL().includes('index.html'))
+const mainWin = () => BrowserWindow.getAllWindows().find((w) => !w.isDestroyed() && w.webContents.getURL().includes('index.html?incognito=0'))
 const ui = (js) => mainWin().webContents.executeJavaScript(js)
 const tabIds = () => ui(`[...document.querySelectorAll('#tabs .tab')].map(t => Number(t.dataset.id))`)
 const webPages = () => webContents.getAllWebContents().filter((w) => /^https?:/.test(w.getURL()))
@@ -345,6 +345,66 @@ app.whenReady().then(() =>
         assert(!text.includes(MCP_TOKEN), 'MCP read a local file')
         assert(!webContents.getAllWebContents().some((w) => w.getURL().startsWith('file:') && w.getURL().includes('settings.json')), 'MCP opened a local file')
       })
+      // Answers the next permission prompt (in the menus overlay) with the given button.
+      const answerPrompt = async (label) => {
+        const ov = () => webContents.getAllWebContents().find((c) => c.getURL().includes('overlay.html'))
+        await waitFor(async () => !!ov() && (await ov().executeJavaScript(`[...document.querySelectorAll('button')].some(b => b.textContent === ${JSON.stringify(label)})`)), 5000)
+        await ov()?.executeJavaScript(`[...document.querySelectorAll('button')].find(b => b.textContent === ${JSON.stringify(label)})?.click()`)
+      }
+
+      await check("one site's permission never applies to another site's blank frames", async () => {
+        const blankFrameAsk = `new Promise(r => { const f = document.createElement('iframe'); document.body.append(f); f.contentWindow.Notification.requestPermission().then(r, () => r('error')) })`
+        const first = page.executeJavaScript(blankFrameAsk, true)
+        answerPrompt('Allow').catch(() => {})
+        await first
+        const other = await openTab(`http://localhost:${port}/?other`)
+        const result = await Promise.race([other.executeJavaScript(blankFrameAsk, true), sleep(3000).then(() => 'prompted')])
+        assert(result !== 'granted', `a blank frame on another site was granted notifications without asking`)
+        if (result === 'prompted') await answerPrompt('Block')
+      })
+
+      await check("permissions allowed in a private window don't carry over to normal windows", async () => {
+        const item = Menu.getApplicationMenu().items.find((i) => i.label === 'File').submenu.items.find((i) => i.label === 'New Private Window')
+        const before = new Set(BrowserWindow.getAllWindows().map((w) => w.id))
+        item.click()
+        let priv
+        await waitFor(() => Promise.resolve((priv = BrowserWindow.getAllWindows().find((w) => !before.has(w.id) && w.webContents.getURL().includes('incognito=1')))))
+        assert(priv, 'test setup: no private window')
+        await waitFor(() => priv.webContents.executeJavaScript(`!!window.browser`))
+        const known = new Set(webContents.getAllWebContents().map((w) => w.id))
+        await priv.webContents.executeJavaScript(`window.browser.newTab(${JSON.stringify(`${site}/?private`)})`)
+        let tabWc
+        await waitFor(() => Promise.resolve((tabWc = webContents.getAllWebContents().find((w) => !known.has(w.id) && w.getURL().includes('?private'))) && !tabWc.isLoading()))
+        assert(tabWc, 'test setup: the private tab did not open')
+        const asked = tabWc.executeJavaScript(`Notification.requestPermission()`, true)
+        await answerPrompt('Allow')
+        const answer = await Promise.race([asked, sleep(5000).then(() => 'no answer')])
+        assert(answer === 'granted', `test setup: the private tab was not granted (${answer})`)
+        priv.close()
+        await sleep(500)
+        const normal = await openTab(`${site}/?normal`)
+        const state = await normal.executeJavaScript(`navigator.permissions.query({ name: 'notifications' }).then(s => s.state)`)
+        assert(state !== 'granted', 'a permission allowed in a private window applies in normal windows')
+      })
+
+      await check("pop-ups (and pop-ups' pop-ups) can't pose as another site", async () => {
+        const before = new Set(BrowserWindow.getAllWindows().map((w) => w.id))
+        await page.executeJavaScript(`(() => {
+          const p = window.open('/', 'p1', 'width=400,height=300')
+          setTimeout(() => {
+            const q = p.open('', 'p2', 'width=400,height=300')
+            q.document.title = 'accounts.google.com — Sign in'
+          }, 800)
+        })()`, true)
+        let popups = []
+        await waitFor(() => Promise.resolve((popups = BrowserWindow.getAllWindows().filter((w) => !before.has(w.id))).length >= 2), 6000)
+        await sleep(500)
+        const titles = popups.map((w) => w.getTitle())
+        for (const w of popups) w.close()
+        assert(popups.length >= 2, `expected two pop-ups, got ${popups.length}`)
+        assert(titles.every((t) => t.startsWith(`127.0.0.1:${port}`)), `pop-up titles don't start with the real site: ${JSON.stringify(titles)}`)
+      })
+
       await check("MCP can't read a local page left showing after a navigation that didn't load", async () => {
         const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'zirtola-local-'))
         fs.writeFileSync(path.join(dir, 'notes.html'), `<!doctype html><title>notes</title><p>${SECRET}</p>`)

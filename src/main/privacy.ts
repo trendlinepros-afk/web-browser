@@ -54,11 +54,13 @@ export function configureNetwork(ses: Session, blocker: AdBlocker): void {
       event.returnValue = {
         gpc: getSettings().privacy.globalPrivacyControl,
         languages: acceptLanguages().split(','),
-        undecidedPermissions: undecidedPermissions(origin),
+        undecidedPermissions: undecidedPermissions(event.sender.session, origin),
         reportUaData: needsLearning(),
       }
     })
-    ipcMain.on('privacy:ua-data', (_event, values: Record<string, unknown>) => {
+    ipcMain.on('privacy:ua-data', (event, values: Record<string, unknown>) => {
+      // Only from a web page's own top frame (the preload only sends from there).
+      if (event.senderFrame !== event.sender.mainFrame || !/^https?:/.test(event.sender.getURL())) return
       if (needsLearning() && values && typeof values === 'object') learnFromRenderer(values)
     })
   }
@@ -77,7 +79,12 @@ export function configureNetwork(ses: Session, blocker: AdBlocker): void {
 
   ses.webRequest.onBeforeSendHeaders({ urls: ['<all_urls>'] }, (details, callback) => {
     const hints: Record<string, string> = {}
-    addClientHints(ses, details.url, { ...details.requestHeaders }, hints)
+    try {
+      addClientHints(ses, details.url, { ...details.requestHeaders }, hints)
+    } catch (err) {
+      // Never let a hint bug hold up the request: it would leave every page loading forever.
+      console.warn('Client hints failed:', err)
+    }
     // Same order as Chrome: client hints come first, before Upgrade-Insecure-Requests / User-Agent.
     // Header order is part of how sites fingerprint browsers.
     const headers: Record<string, string> = { ...hints, ...details.requestHeaders }

@@ -1,4 +1,4 @@
-import { WebContentsView, type NavigationEntry, type Session, type WebContents } from 'electron'
+import { WebContentsView, type BrowserWindow, type NavigationEntry, type Session, type WebContents } from 'electron'
 import type { TabInfo } from '../shared/types'
 import type { BrowserWindowController } from './window'
 import { attachContextMenu } from './context-menu'
@@ -47,6 +47,8 @@ export class Tab {
   lastControlledAt = 0
   /** Ads/trackers blocked since the current page started loading. */
   blockedCount = 0
+  /** When you last clicked, tapped or typed in this page (so actions can tell yours from a script's). */
+  lastUserInputAt = 0
 
   private savedHistory: { entries: NavigationEntry[]; index: number } | null = null
 
@@ -267,28 +269,45 @@ export class Tab {
       this.crashed = true
       changed()
     })
-    wc.setWindowOpenHandler((details) => this.window.handleWindowOpen(this, details))
-    // Pop-up windows (sign-in windows and the like) have no address bar, so their title always
-    // starts with the real site, which the page can't change: a pop-up can't pose as another site.
-    wc.on('did-create-window', (win) => {
-      const host = () => {
-        try {
-          return new URL(win.webContents.getURL()).host || win.webContents.getURL()
-        } catch {
-          return ''
-        }
-      }
-      const update = () => {
-        if (win.isDestroyed()) return
-        const title = win.webContents.getTitle()
-        win.setTitle(host() ? `${host()} — ${title && title !== win.webContents.getURL() ? title : ''}`.replace(/ — $/, '') : title)
-      }
-      win.on('page-title-updated', (e) => {
-        e.preventDefault()
-        update()
-      })
-      win.webContents.on('did-navigate', update)
-      update()
+    wc.on('input-event', (_e, input) => {
+      if (input.type === 'mouseDown' || input.type === 'rawKeyDown' || input.type === 'keyDown' || input.type === 'touchStart' || input.type === 'gestureTap') this.lastUserInputAt = Date.now()
     })
+    wc.setWindowOpenHandler((details) => this.window.handleWindowOpen(this, details))
+    wc.on('did-create-window', (win) => guardPopup(win, this))
   }
+}
+
+/**
+ * Pop-up windows (sign-in windows and the like) have no address bar, so their title always starts
+ * with the real site, which the page can't change: a pop-up can't pose as another site. A blank
+ * pop-up shows its opener's site (that's whose page it is). The same goes for pop-ups that pop-ups
+ * open, and links they open in a new tab become normal tabs.
+ */
+function guardPopup(win: BrowserWindow, opener: Tab): void {
+  const wc = win.webContents
+  const site = () => {
+    for (const url of [wc.getURL(), wc.mainFrame.origin]) {
+      try {
+        const host = new URL(url).host
+        if (host) return host
+      } catch {
+        // not a URL
+      }
+    }
+    return wc.getURL() || 'about:blank'
+  }
+  const update = () => {
+    if (win.isDestroyed()) return
+    const title = wc.getTitle()
+    win.setTitle(`${site()}${title && title !== wc.getURL() ? ` — ${title}` : ''}`)
+  }
+  win.on('page-title-updated', (e) => {
+    e.preventDefault()
+    update()
+  })
+  wc.on('did-navigate', update)
+  wc.on('did-navigate-in-page', update)
+  wc.setWindowOpenHandler((details) => opener.window.handleWindowOpen(opener, details))
+  wc.on('did-create-window', (child) => guardPopup(child, opener))
+  update()
 }

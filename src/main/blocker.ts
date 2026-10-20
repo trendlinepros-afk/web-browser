@@ -180,8 +180,11 @@ export class AdBlocker {
     ipcMain.handle(
       '@ghostery/adblocker/inject-cosmetic-filters',
       async (event, url: string, msg?: Parameters<ElectronBlocker['onInjectCosmeticFilters']>[2]) => {
-        if (!this.engine || !this.activeFor(event.sender.getURL())) return
-        await this.engine.onInjectCosmeticFilters(event, url, msg)
+        // Filters are injected into the tab's top frame, so only that frame may ask, and for its own page
+        // (an embedded frame from another site mustn't choose what runs in the page around it).
+        if (!this.engine || event.senderFrame !== event.sender.mainFrame || !this.activeFor(event.sender.getURL())) return
+        void url
+        await this.engine.onInjectCosmeticFilters(event, event.sender.getURL(), msg)
       },
     )
   }

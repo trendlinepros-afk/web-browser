@@ -60,13 +60,13 @@ export class TorrentSender {
 
   /**
    * A page asked to open a link in another app. Returns true when it was a magnet link and has been
-   * dealt with (sent, or the user was asked to set up Deluge). Magnet links from a page's own frame
-   * are sent right away; ones from an embedded frame (an ad, a hidden iframe) are asked about first.
+   * dealt with (sent, or the user was asked to set up Deluge). A magnet link you clicked is sent right
+   * away; one a page opened by itself (a script, an ad, a hidden frame) is asked about first.
    */
-  handleExternal(url: string, w: BrowserWindowController | undefined, fromMainFrame = true): boolean {
+  handleExternal(url: string, w: BrowserWindowController | undefined, clicked: boolean): boolean {
     if (!isMagnet(url)) return false
     if (this.active) {
-      if (fromMainFrame) void this.sendMagnet(url, w)
+      if (clicked) void this.sendMagnet(url, w)
       else void this.confirm(magnetName(url), w, () => this.sendMagnet(url, w))
       return true
     }

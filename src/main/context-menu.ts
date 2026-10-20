@@ -3,6 +3,26 @@ import type { Tab } from './tab'
 import { getSettings } from './settings'
 import { isMagnet, isTorrentURL } from './torrents'
 
+/**
+ * Links and images the page offers that "Open in new tab/window" may open. The page picks these URLs,
+ * and opening them from the menu skips the rules for the page's own navigations, so local files,
+ * extension pages and internal pages only open from a page of the same kind (a local page linking to
+ * another local file, an extension page to its own pages).
+ */
+function openable(url: string, pageUrl: string): boolean {
+  try {
+    const target = new URL(url)
+    if (/^(https?|blob):$/.test(target.protocol)) return true
+    if (target.protocol === 'data:') return /^data:image\//i.test(url)
+    const page = new URL(pageUrl)
+    if (target.protocol === 'file:') return page.protocol === 'file:'
+    if (target.protocol === 'chrome-extension:') return page.protocol === 'chrome-extension:' && page.host === target.host
+    return false
+  } catch {
+    return false
+  }
+}
+
 export function attachContextMenu(tab: Tab, wc: WebContents): void {
   wc.on('context-menu', (_event, params) => {
     const window = tab.window
@@ -18,7 +38,7 @@ export function attachContextMenu(tab: Tab, wc: WebContents): void {
     if (params.linkURL && isMagnet(params.linkURL)) {
       items.push({ label: 'Copy magnet link', click: () => clipboard.writeText(params.linkURL) })
       sep()
-    } else if (params.linkURL) {
+    } else if (params.linkURL && openable(params.linkURL, params.pageURL)) {
       items.push(
         { label: 'Open link in new tab', click: () => window.createTab({ url: params.linkURL, background: true }) },
         { label: 'Open link in new window', click: () => browser.createWindow({ incognito: tab.incognito, url: params.linkURL }) },
@@ -28,7 +48,7 @@ export function attachContextMenu(tab: Tab, wc: WebContents): void {
       sep()
     }
 
-    if (params.mediaType === 'image' && params.srcURL) {
+    if (params.mediaType === 'image' && params.srcURL && openable(params.srcURL, params.pageURL)) {
       items.push(
         { label: 'Open image in new tab', click: () => window.createTab({ url: params.srcURL, background: true }) },
         { label: 'Save image as…', click: () => wc.downloadURL(params.srcURL) },

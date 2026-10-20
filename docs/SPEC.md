@@ -383,6 +383,36 @@ and `runtime` messaging all work.
   away; UI/menu IPC from a web page is ignored; certificate errors aren't bypassed; pages can't launch other
   apps; no permission granted without asking; HSTS preload enforced; MCP rejects missing/wrong tokens,
   foreign Host headers and browser Origins, offers no evaluate tool unless enabled and never opens file://.
+- Security review 2026-10-20 (five parallel reviewers: UI/IPC, web content, extensions, AI tools, updates and
+  supply chain). Fixed, each with a check in `scripts/security-check` that fails without the fix:
+  - Bundled-library holes, patched at install by `scripts/patch-deps.js` (fails the build if a patch stops
+    matching): electron-chrome-web-store trusted any origin *starting with* chromewebstore.google.com (silent
+    installs from a look-alike host) and its uninstall deleted `Extensions/<id>` with the id unchecked
+    (`../x` deleted any folder); electron-chrome-extensions took the extension id from the caller (one
+    extension, or a hijacked page, could act as LastPass) and gave chrome.cookies to every extension.
+    Installs from the Web Store now always ask.
+  - Local .html files could read other local files (fetch/XHR/iframe): blocked for web content.
+  - Favicons from file:// (read local files, or a Windows file share): only http(s)/data: icons.
+  - Permissions were keyed by frame URL (a blank iframe's grant applied to every site's blank frames) and
+    shared between private and normal windows: now keyed by real origin, opaque frames are never
+    remembered, and each session keeps its own decisions.
+  - Long hostnames hid the real domain: the host is clipped from the left. Pop-ups opened by pop-ups had
+    no real-site title: every pop-up level is titled with its real site.
+  - Right-click "Open link/image" opened file://, extension and internal URLs: only web, blob and image
+    data URLs (local/extension links only from a page of the same kind).
+  - MCP read a local page left on screen after a navigation that never loaded (download/204): the check
+    uses the shown page and is repeated inside the page; back/forward can't enter local or extension
+    pages; chat passes the page title to Claude as quoted data, not as the user's words.
+  - Magnet Torrent sends without asking only on your own click in the page; scripted, framed and
+    unclicked .torrent downloads ask first.
+  - Renderer-supplied UA data is validated (a bad value could stall every HTTPS request); cosmetic-filter
+    requests only from the tab's top frame for its own URL.
+  - Workflows: job tokens aren't left in .git/config, CI is read-only, the Electron updater runs
+    `npm audit signatures` and only lets Electron (and its own deps) change in the lockfile.
+  Known, not yet fixed: runAsNode stays on for the Claude Desktop bridge; the bridge sends the MCP token
+  to whatever listens on the port (matters only on shared machines); Electron doesn't enforce Chrome's
+  local-network access prompt; extensions may launch external apps without asking; CRX signatures
+  aren't verified beyond the key→ID binding (relies on TLS to Google).
 - Asar integrity is not enabled on purpose: without code signing, malware that can rewrite app.asar (a per-user
   install folder) can rewrite the unsigned .exe that holds the hash just as easily, so it would add risk of a
   broken launch without adding protection. It becomes worthwhile together with code signing.
