@@ -221,6 +221,12 @@ Claude Desktop connects through `npx mcp-remote` with the same URL and header (s
   works in it open as tabs (tool results name the new tab, and say when a page closed itself).
 - `window.close()` in a tab's top frame is routed to Zirtola (`page:close-self`): Electron destroying a tab's page
   under its view froze the whole browser. Like Chrome, only tabs and pop-ups a page opened can close themselves.
+  A page can still reach Chromium's own close (e.g. the native close() borrowed from an iframe); for that, the
+  tab listens to Electron's internal "close" event, takes the view out of the window and lets go of the page before
+  Electron destroys it, then closes the tab. Checked 15× in a row and in the security checks.
+- Pop-ups become tabs only when opened by the page of the tab Claude is working in (not by a separate pop-up
+  window), at most 3 per 10 s per tab (the rest stay pop-up windows); they aren't marked as Claude's until Claude
+  acts in them, and tool results only report tabs opened by the tab Claude acted in.
 - **Magnet Torrent** (built into the browser, not an extension; `deluge.ts`, `torrents.ts`), like the old *Deluge Siphon* extension: with
   Settings → Magnet Torrent pointed at a Deluge Web UI (e.g. `http://unraid:8112`), clicking a magnet link
   or a .torrent download sends it to Deluge over its JSON-RPC API (`auth.login`, auto-connects the Web UI

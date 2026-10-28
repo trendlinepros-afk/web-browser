@@ -51,6 +51,10 @@ export class Tab {
   lastUserInputAt = 0
   /** Opened by a page (window.open, target=_blank), so the page may close it again (window.close()). */
   openedByPage = false
+  /** The tab whose page opened this one. */
+  openerTab: Tab | null = null
+  /** Recent pop-ups this tab opened as tabs while Claude worked in it (to cap pop-up floods). */
+  popupTimes: number[] = []
 
   private savedHistory: { entries: NavigationEntry[]; index: number } | null = null
 
@@ -223,6 +227,16 @@ export class Tab {
     wc.setWebRTCIPHandlingPolicy('default_public_interface_only')
     this.wireEvents(wc)
     attachContextMenu(this, wc)
+    // A page closing itself in a way the preload can't intercept (e.g. the native close() borrowed from a
+    // frame): Electron emits "close" just before destroying the page, and destroying it while its view is
+    // still in the window freezes the browser. Take the view out now and close the tab properly.
+    ;(wc as unknown as NodeJS.EventEmitter).on('close', () => {
+      if (this.view !== view) return
+      this.window.detachTabView(view)
+      // Electron is already destroying the page: let go of it so closing the tab doesn't close it again.
+      this.view = null
+      if (this.window.tabs.includes(this)) setImmediate(() => this.window.closeTab(this))
+    })
     this.window.onTabViewCreated(this, view)
     return wc
   }
@@ -309,7 +323,7 @@ function guardPopup(win: BrowserWindow, opener: Tab): void {
   })
   wc.on('did-navigate', update)
   wc.on('did-navigate-in-page', update)
-  wc.setWindowOpenHandler((details) => opener.window.handleWindowOpen(opener, details))
+  wc.setWindowOpenHandler((details) => opener.window.handleWindowOpen(opener, details, true))
   wc.on('did-create-window', (child) => guardPopup(child, opener))
   update()
 }

@@ -144,9 +144,12 @@ export class BrowserMcpServer {
     const before = new Set(this.visibleTabs().map((t) => t.id))
     let message = await action()
     await new Promise((r) => setTimeout(r, 300))
-    for (const t of this.visibleTabs()) {
-      if (before.has(t.id) || !t.openedByPage) continue
-      if (t.webContents) await auto.settle(t.webContents)
+    // Only tabs this tab's page just opened (at most 3), loaded together within one time limit.
+    const opened = this.visibleTabs()
+      .filter((t) => !before.has(t.id) && t.openerTab === tab)
+      .slice(0, 3)
+    await Promise.all(opened.map((t) => (t.webContents ? auto.settle(t.webContents, 8000) : undefined)))
+    for (const t of opened) {
       const url = shownURL(t) || t.url
       if (url && !isWebURL(url)) {
         message += `\nA new tab opened (${t.id}) with a page Claude can't access.`

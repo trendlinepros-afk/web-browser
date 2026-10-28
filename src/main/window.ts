@@ -152,8 +152,7 @@ export class BrowserWindowController {
   adoptTab(webContentsOptions: Electron.WebContentsViewConstructorOptions, opener: Tab, background: boolean): Tab {
     const tab = new Tab(this, this.session, { webContentsOptions })
     tab.openedByPage = true
-    // A page Claude opened while working is Claude's to continue in.
-    if (opener.controlled) tab.lastControlledAt = Date.now()
+    tab.openerTab = opener
     const index = this.tabs.indexOf(opener) + 1
     this.insertTab(tab, index > 0 ? index : undefined, background)
     return tab
@@ -403,10 +402,15 @@ export class BrowserWindowController {
     this.browser.scheduleSessionSave()
   }
 
-  handleWindowOpen(opener: Tab, details: HandlerDetails): WindowOpenHandlerResponse {
-    // While Claude is working in a tab, its pop-ups (e.g. a time-entry window) open as tabs next to it:
-    // Claude only works in tabs. window.opener still works, and a pop-up that closes itself closes the tab.
-    const asTab = opener.controlled && details.disposition === 'new-window' && opener.window === this
+  handleWindowOpen(opener: Tab, details: HandlerDetails, fromPopupWindow = false): WindowOpenHandlerResponse {
+    // While Claude is working in a tab, the pop-ups that tab's own page opens (e.g. a time-entry window)
+    // open as tabs next to it: Claude only works in tabs. window.opener still works, and a pop-up that
+    // closes itself closes the tab. Not for pop-ups opened by a separate pop-up window, and at most 3
+    // in 10 seconds (Electron has no pop-up blocker; the rest open as normal pop-up windows).
+    const now = Date.now()
+    opener.popupTimes = opener.popupTimes.filter((t) => now - t < 10_000)
+    const asTab = !fromPopupWindow && opener.controlled && details.disposition === 'new-window' && opener.window === this && opener.popupTimes.length < 3
+    if (asTab) opener.popupTimes.push(now)
     if (asTab || details.disposition === 'foreground-tab' || details.disposition === 'background-tab') {
       return {
         action: 'allow',

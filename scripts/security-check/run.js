@@ -445,6 +445,13 @@ app.whenReady().then(() =>
         await sleep(500)
         assert((await tabIds()).length === count - 1, 'a forged close message closed a tab')
         assert((await ui('1 + 1')) === 2, 'the browser stopped responding')
+        // The native close() borrowed from a frame skips the page's own close(): it may close the tab
+        // (as Chrome would for a one-page tab) but must never freeze the browser.
+        const victim = await openTab(`${site}/?borrowed-close`)
+        await victim.executeJavaScript(`setTimeout(() => { const f = document.createElement('iframe'); document.body.append(f); f.contentWindow.close.call(window) }, 50); 1`)
+        await sleep(1500)
+        const alive = await Promise.race([ui('2 + 2'), sleep(5000).then(() => 'frozen')])
+        assert(alive === 4, 'a page froze the browser by calling a borrowed window.close()')
       })
 
       await check('My time: web pages and Claude cannot approve or change approved time', async () => {
