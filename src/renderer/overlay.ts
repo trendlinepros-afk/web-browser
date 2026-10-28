@@ -1,5 +1,5 @@
 // Draws Zirtola's menus and settings panel above the page. Plain DOM; driven by the main process.
-import type { ChatEntry, ChatState, PopupItem, PopupModifiers, PromptSpec, SettingsControl, SettingsModel, SettingsSection } from '../shared/types'
+import type { ChatEntry, ChatState, PopupItem, PopupModifiers, PromptSpec, SettingsControl, SettingsModel, SettingsSection, WorklogEntry, WorklogModel, WorklogOp, WorklogSlotted } from '../shared/types'
 
 interface OverlayApi {
   onShowMenu(cb: (m: { items: PopupItem[]; x: number; y: number; align: 'left' | 'right'; incognito?: boolean }) => void): void
@@ -15,6 +15,9 @@ interface OverlayApi {
   onShowChat(cb: (m: { state: ChatState; x: number; y: number; incognito?: boolean }) => void): void
   onUpdateChat(cb: (s: ChatState) => void): void
   chat(op: 'send' | 'stop' | 'new' | 'login', text?: string): void
+  onShowWorklog(cb: (m: WorklogModel & { incognito?: boolean }) => void): void
+  onUpdateWorklog(cb: (m: WorklogModel) => void): void
+  worklog(op: WorklogOp): void
 }
 
 const api = (window as unknown as { overlay: OverlayApi }).overlay
@@ -22,6 +25,7 @@ const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as 
 const menusEl = $<HTMLDivElement>('menus')
 const settingsEl = $<HTMLElement>('settings')
 const chatEl = $<HTMLElement>('chat')
+const worklogEl = $<HTMLElement>('worklog')
 const scrim = $<HTMLDivElement>('scrim')
 
 const params = new URLSearchParams(location.search)
@@ -54,6 +58,7 @@ function closeAll(): void {
   closeFrom(0)
   settingsEl.hidden = true
   chatEl.hidden = true
+  worklogEl.hidden = true
   document.body.classList.remove('settings-open')
   api.close()
 }
@@ -215,6 +220,7 @@ api.onHide(() => {
   closeFrom(0)
   settingsEl.hidden = true
   chatEl.hidden = true
+  worklogEl.hidden = true
   document.body.classList.remove('settings-open')
 })
 
@@ -321,14 +327,16 @@ function control(c: SettingsControl): HTMLElement {
     text.replaceChildren(Object.assign(document.createElement('div'), { className: 'label', textContent: c.description ?? '' }))
     row.append(btn)
   } else if (c.kind === 'text') {
-    const input = Object.assign(document.createElement('input'), { className: 'text-input', type: c.secret ? 'password' : 'text', value: c.value, placeholder: c.placeholder ?? '', spellcheck: false })
+    const input = c.multiline
+      ? Object.assign(document.createElement('textarea'), { className: 'text-input multiline', value: c.value, placeholder: c.placeholder ?? '', spellcheck: false, rows: 5 })
+      : Object.assign(document.createElement('input'), { className: 'text-input', type: c.secret ? 'password' : 'text', value: c.value, placeholder: c.placeholder ?? '', spellcheck: false })
     input.setAttribute('aria-label', c.label)
     const commit = () => {
       if (input.value.trim() !== c.value) api.setSetting(c.key, input.value)
     }
     input.onchange = commit
     input.onkeydown = (e) => {
-      if (e.key === 'Enter') input.blur()
+      if (e.key === 'Enter' && !c.multiline) input.blur()
     }
     row.append(input)
   } else {
@@ -346,6 +354,7 @@ const SECTION_ICONS: Record<string, string> = {
   startup: '<path d="M4.5 11 12 4.5l7.5 6.5"/><path d="M6.5 9.5v9h4v-5h3v5h4v-9"/>',
   bookmarks: '<path d="M7 4.5h10v15l-5-3.5-5 3.5z"/>',
   extensions: '<path d="M9.5 4.5h3v2a1.5 1.5 0 0 0 3 0v-2h3v5h-2a1.5 1.5 0 0 0 0 3h2v5h-5v-2a1.5 1.5 0 0 0-3 0v2h-5v-5h2a1.5 1.5 0 0 0 0-3h-2v-5z"/>',
+  worklog: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
   torrents: '<path d="M7 4.5v7a5 5 0 0 0 10 0v-7"/><path d="M7 4.5h3v7a2 2 0 0 0 4 0v-7h3"/><path d="M7 8h3M14 8h3"/>',
   claude: '<path d="M12 3.5v3M12 17.5v3M3.5 12h3M17.5 12h3M6 6l2.1 2.1M15.9 15.9 18 18M18 6l-2.1 2.1M8.1 15.9 6 18"/>',
   updates: '<path d="M12 4.5v10M7.5 10l4.5 4.5 4.5-4.5"/><path d="M5 19.5h14"/>',
@@ -612,3 +621,221 @@ $('chat-new').onclick = () => {
   chatInput.focus()
 }
 $('chat-close').onclick = () => closeAll()
+
+// ---- My time (ConnectWise time entries) -------------------------------------------
+
+const wlList = $<HTMLDivElement>('wl-list')
+const GEAR = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2M5.6 5.6l1.4 1.4M17 17l1.4 1.4M5.6 18.4 7 17M17 7l1.4-1.4"/></svg>'
+const LEFT = '<svg viewBox="0 0 24 24"><path d="m15 6-6 6 6 6"/></svg>'
+const TRASH = '<svg viewBox="0 0 24 24"><path d="M5 7h14M10 11v6M14 11v6M7 7l1 12h8l1-12M9 7V4h6v3"/></svg>'
+let wlModel: WorklogModel | null = null
+/** An update that arrived while you were typing; drawn when you leave the field. */
+let wlPending: WorklogModel | null = null
+
+const pad = (n: number) => String(n).padStart(2, '0')
+function dayStart(day: string): number {
+  const [y, m, d] = day.split('-').map(Number)
+  return new Date(y, m - 1, d).getTime()
+}
+function shiftDay(day: string, by: number): string {
+  const d = new Date(dayStart(day) + by * 86_400_000 + 3_600_000 * 12)
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+}
+function roundTo(t: number, minutes: number): number {
+  const step = Math.max(1, minutes) * 60_000
+  return Math.round(t / step) * step
+}
+const hhmm = (t: number) => {
+  const d = new Date(t)
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+/** "HH:MM" on the panel's day → epoch ms. */
+function atTime(day: string, value: string): number | null {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(value)
+  if (!m) return null
+  const [y, mo, d] = day.split('-').map(Number)
+  return new Date(y, mo - 1, d, Number(m[1]), Number(m[2])).getTime()
+}
+function dayLabel(m: WorklogModel): string {
+  if (m.day === m.today) return 'Today'
+  if (m.day === shiftDay(m.today, -1)) return 'Yesterday'
+  return new Date(dayStart(m.day)).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })
+}
+const STATUS_TEXT: Record<WorklogEntry['status'], string> = { draft: 'Draft', approved: 'Approved', entered: 'In ConnectWise', skipped: 'Skipped' }
+
+function update(id: string, patch: Extract<WorklogOp, { op: 'update' }>['patch']): void {
+  api.worklog({ op: 'update', id, patch })
+}
+
+function wlRow(e: WorklogSlotted, m: WorklogModel): HTMLElement {
+  const row = document.createElement('div')
+  row.className = `wl-row ${e.status}`
+  const locked = e.status === 'entered'
+  const times = { start: e.slotStart, end: e.slotEnd }
+  const hours = (times.end - times.start) / 3_600_000
+
+  const ok = Object.assign(document.createElement('input'), { type: 'checkbox', className: 'wl-ok', checked: e.status === 'approved' || e.status === 'entered', disabled: locked, title: 'Approve: Claude may enter this one' })
+  ok.onchange = () => update(e.id, { status: ok.checked ? 'approved' : 'draft' })
+
+  const ticket = Object.assign(document.createElement('input'), { className: 'wl-ticket', value: e.ticket, disabled: locked, title: 'Ticket number', inputMode: 'numeric' })
+  ticket.setAttribute('aria-label', 'Ticket number')
+  ticket.onchange = () => {
+    const v = ticket.value.replace(/\D/g, '')
+    if (v) update(e.id, { ticket: v })
+    else ticket.value = e.ticket
+  }
+  const summary = Object.assign(document.createElement('div'), { className: 'wl-summary', textContent: e.summary || (e.manual ? 'Added by hand' : '') })
+  summary.title = e.summary
+
+  const timeInput = (value: number, which: 'start' | 'end') => {
+    const input = Object.assign(document.createElement('input'), { type: 'time', className: 'wl-time', value: hhmm(value), disabled: locked, step: 60 })
+    input.setAttribute('aria-label', which === 'start' ? 'Start' : 'End')
+    input.onchange = () => {
+      const t = atTime(m.day, input.value)
+      if (t === null) return
+      const other = which === 'start' ? times.end : times.start
+      if (which === 'start' ? t >= other : t <= other) {
+        input.value = hhmm(value)
+        return
+      }
+      update(e.id, which === 'start' ? { start: t, end: times.end } : { start: times.start, end: t })
+    }
+    return input
+  }
+  const dash = Object.assign(document.createElement('span'), { className: 'wl-dash', textContent: '–' })
+  const length = Object.assign(document.createElement('span'), { className: 'wl-hours', textContent: `${hours.toFixed(2)} h` })
+  const chip = Object.assign(document.createElement('span'), { className: 'wl-chip', textContent: STATUS_TEXT[e.status] })
+  if (!e.manual && e.seconds < 120 && e.status === 'draft') {
+    chip.textContent = 'Under 2 min'
+    chip.classList.add('short')
+  }
+  if (e.notesByClaude && e.status === 'draft') {
+    chip.textContent = 'Check Claude\'s notes'
+    chip.classList.add('claude')
+    chip.title = 'Claude suggested these notes. Read them (edit if needed) before approving.'
+  }
+  const del = Object.assign(document.createElement('button'), { className: 'icon wl-del', type: 'button', title: 'Delete', innerHTML: TRASH, disabled: locked })
+  del.setAttribute('aria-label', 'Delete entry')
+  del.onclick = () => api.worklog({ op: 'remove', id: e.id })
+
+  const notes = Object.assign(document.createElement('textarea'), { className: 'wl-notes', value: e.notes, disabled: locked, rows: 1, placeholder: 'What you did (goes into ConnectWise as the time entry notes)' })
+  notes.setAttribute('aria-label', 'Notes')
+  let timer: number | undefined
+  const fit = () => {
+    notes.style.height = 'auto'
+    notes.style.height = `${Math.min(notes.scrollHeight, 140)}px`
+  }
+  notes.oninput = () => {
+    fit()
+    clearTimeout(timer)
+    timer = window.setTimeout(() => update(e.id, { notes: notes.value }), 600)
+  }
+  notes.onchange = () => {
+    clearTimeout(timer)
+    update(e.id, { notes: notes.value })
+  }
+  requestAnimationFrame(fit)
+
+  const top = document.createElement('div')
+  top.className = 'wl-top'
+  top.append(ok, ticket, summary, timeInput(times.start, 'start'), dash, timeInput(times.end, 'end'), length, chip, del)
+  row.append(top, notes)
+  return row
+}
+
+function addRow(m: WorklogModel): HTMLElement {
+  const row = document.createElement('div')
+  row.className = 'wl-row adding'
+  const ticket = Object.assign(document.createElement('input'), { className: 'wl-ticket', placeholder: 'Ticket #', inputMode: 'numeric' })
+  const now = roundTo(m.day === m.today ? Date.now() : dayStart(m.day) + 9 * 3_600_000, m.roundMinutes)
+  const start = Object.assign(document.createElement('input'), { type: 'time', className: 'wl-time', value: hhmm(now - 30 * 60_000) })
+  const end = Object.assign(document.createElement('input'), { type: 'time', className: 'wl-time', value: hhmm(now) })
+  const save = Object.assign(document.createElement('button'), { className: 'btn primary', type: 'button', textContent: 'Add' })
+  const cancel = Object.assign(document.createElement('button'), { className: 'btn', type: 'button', textContent: 'Cancel' })
+  const error = Object.assign(document.createElement('span'), { className: 'wl-error' })
+  save.onclick = () => {
+    const t = ticket.value.replace(/\D/g, '')
+    const a = atTime(m.day, start.value)
+    const b = atTime(m.day, end.value)
+    if (!t) return void (error.textContent = 'Enter the ticket number.')
+    if (a === null || b === null || b <= a) return void (error.textContent = 'The end must be after the start.')
+    api.worklog({ op: 'add', ticket: t, start: a, end: b })
+    row.remove()
+  }
+  cancel.onclick = () => row.remove()
+  const top = document.createElement('div')
+  top.className = 'wl-top'
+  top.append(ticket, start, Object.assign(document.createElement('span'), { className: 'wl-dash', textContent: '–' }), end, save, cancel, error)
+  row.append(top)
+  setTimeout(() => ticket.focus())
+  return row
+}
+
+function renderWorklog(m: WorklogModel): void {
+  const active = document.activeElement
+  if (active && worklogEl.contains(active) && active.matches('input,textarea') && wlModel && wlModel.day === m.day) {
+    wlPending = m
+    return
+  }
+  wlPending = null
+  wlModel = m
+  $('wl-day').textContent = dayLabel(m)
+  ;($<HTMLButtonElement>('wl-next')).disabled = m.day >= m.today
+  const live = m.entries.filter((e) => e.status !== 'skipped')
+  const total = live.reduce((h, e) => h + (e.slotEnd - e.slotStart) / 3_600_000, 0)
+  const approved = m.entries.filter((e) => e.status === 'approved').length
+  $('wl-total').textContent = live.length ? `${total.toFixed(2)} h · ${approved} approved` : ''
+  $('wl-off').hidden = m.enabled
+  ;($<HTMLButtonElement>('wl-enter')).disabled = approved === 0
+  ;($<HTMLButtonElement>('wl-draft')).disabled = !m.entries.some((e) => e.status === 'draft' && !e.notes.trim())
+  const adding = wlList.querySelector('.wl-row.adding')
+  wlList.replaceChildren(...m.entries.map((e) => wlRow(e, m)))
+  if (!m.entries.length) {
+    wlList.append(
+      Object.assign(document.createElement('p'), {
+        className: 'wl-empty',
+        textContent: m.enabled ? 'Nothing tracked on this day yet. Open a ConnectWise ticket and work on it: the time shows up here.' : 'No time on this day.',
+      }),
+    )
+  }
+  if (adding) wlList.append(adding)
+}
+
+worklogEl.addEventListener('focusout', () => {
+  setTimeout(() => {
+    if (wlPending && !(document.activeElement && worklogEl.contains(document.activeElement) && document.activeElement.matches('input,textarea'))) renderWorklog(wlPending)
+  })
+})
+
+api.onShowWorklog((m) => {
+  setIncognito(m.incognito)
+  closeFrom(0)
+  settingsEl.hidden = true
+  chatEl.hidden = true
+  document.body.classList.remove('settings-open')
+  worklogEl.hidden = false
+  document.body.classList.add('settings-open')
+  wlModel = null
+  wlList.replaceChildren()
+  renderWorklog(m)
+  $<HTMLButtonElement>('wl-close').focus()
+})
+api.onUpdateWorklog((m) => {
+  if (!worklogEl.hidden) renderWorklog(m)
+})
+$('wl-close').innerHTML = CLOSE
+$('wl-close').onclick = () => closeAll()
+$('wl-settings').innerHTML = GEAR
+$('wl-settings').onclick = () => api.worklog({ op: 'settings' })
+$('wl-setup').onclick = () => api.worklog({ op: 'settings' })
+$('wl-prev').innerHTML = LEFT
+$('wl-next').innerHTML = CHEVRON
+$('wl-prev').onclick = () => wlModel && api.worklog({ op: 'day', day: shiftDay(wlModel.day, -1) })
+$('wl-next').onclick = () => wlModel && wlModel.day < wlModel.today && api.worklog({ op: 'day', day: shiftDay(wlModel.day, 1) })
+$('wl-add').onclick = () => {
+  if (!wlModel || wlList.querySelector('.wl-row.adding')) return
+  wlList.querySelector('.wl-empty')?.remove()
+  wlList.append(addRow(wlModel))
+}
+$('wl-draft').onclick = () => api.worklog({ op: 'draft-notes' })
+$('wl-enter').onclick = () => api.worklog({ op: 'enter' })

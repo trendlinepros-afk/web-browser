@@ -1,6 +1,6 @@
 // Preload for the overlay that draws Zirtola's menus and settings panel.
 import { contextBridge, ipcRenderer } from 'electron'
-import type { ChatState, PopupItem, PopupModifiers, PromptSpec, SettingsModel } from '../shared/types'
+import type { ChatState, PopupItem, PopupModifiers, PromptSpec, SettingsModel, WorklogModel, WorklogOp } from '../shared/types'
 
 contextBridge.exposeInMainWorld('overlay', {
   onShowMenu: (cb: (m: { items: PopupItem[]; x: number; y: number; align: 'left' | 'right' }) => void) =>
@@ -17,4 +17,7 @@ contextBridge.exposeInMainWorld('overlay', {
   onShowChat: (cb: (m: { state: ChatState; x: number; y: number; incognito?: boolean }) => void) => ipcRenderer.on('overlay:show-chat', (_e, m) => cb(m)),
   onUpdateChat: (cb: (s: ChatState) => void) => ipcRenderer.on('overlay:update-chat', (_e, s) => cb(s)),
   chat: (op: 'send' | 'stop' | 'new' | 'login', text?: string) => ipcRenderer.send('overlay:chat', op, text),
+  onShowWorklog: (cb: (m: WorklogModel & { incognito?: boolean }) => void) => ipcRenderer.on('overlay:show-worklog', (_e, m) => cb(m)),
+  onUpdateWorklog: (cb: (m: WorklogModel) => void) => ipcRenderer.on('overlay:update-worklog', (_e, m) => cb(m)),
+  worklog: (op: WorklogOp) => ipcRenderer.send('overlay:worklog', op),
 })

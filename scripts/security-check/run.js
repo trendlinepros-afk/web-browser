@@ -25,6 +25,21 @@ fs.writeFileSync(
   }),
 )
 
+// My Time entries for today: one draft, one approved (see the time-entry checks).
+const pad2 = (n) => String(n).padStart(2, '0')
+const today = new Date()
+const DAY = `${today.getFullYear()}-${pad2(today.getMonth() + 1)}-${pad2(today.getDate())}`
+fs.mkdirSync(path.join(profile, 'worklog'))
+const t0 = new Date(today.getFullYear(), today.getMonth(), today.getDate(), 9).getTime()
+const WORKLOG = {
+  entries: [
+    { id: 'draft-1', ticket: '1001', summary: 'Draft', start: t0, end: t0 + 1800000, seconds: 1800, notes: '', status: 'draft' },
+    { id: 'approved-1', ticket: '1002', summary: 'Approved', start: t0 + 3600000, end: t0 + 5400000, seconds: 1800, notes: 'Mine', status: 'approved' },
+  ],
+}
+fs.writeFileSync(path.join(profile, 'worklog', `${DAY}.json`), JSON.stringify(WORKLOG))
+const readWorklog = () => JSON.parse(fs.readFileSync(path.join(profile, 'worklog', `${DAY}.json`), 'utf8')).entries
+
 // A look-alike of the Chrome Web Store's address, served locally (see the web store check).
 const LOOKALIKE = 'chromewebstore.google.com.evil.test'
 app.commandLine.appendSwitch('host-resolver-rules', `MAP ${LOOKALIKE} 127.0.0.1`)
@@ -38,6 +53,8 @@ const pages = {
   '/': '<!doctype html><title>home</title><p>home</p>',
   '/frame': (port) => `<!doctype html><title>frame</title><iframe src="http://localhost:${port}/"></iframe>`,
   '/secret': `<!doctype html><title>secret</title><p>${SECRET}</p>`,
+  '/opener': '<!doctype html><title>opener</title><a id=blank href="/closer" target="_blank">open</a>',
+  '/closer': '<!doctype html><title>closer</title><p>closer</p>',
 }
 const server = http
   .createServer((req, res) => {
@@ -403,6 +420,49 @@ app.whenReady().then(() =>
         for (const w of popups) w.close()
         assert(popups.length >= 2, `expected two pop-ups, got ${popups.length}`)
         assert(titles.every((t) => t.startsWith(`127.0.0.1:${port}`)), `pop-up titles don't start with the real site: ${JSON.stringify(titles)}`)
+      })
+
+      await check('pages can only close tabs a page opened (and closing never freezes the browser)', async () => {
+        const tabsBefore = (await tabIds()).length
+        // A tab you opened yourself ignores window.close(), like in Chrome; so do embedded frames.
+        await page.executeJavaScript(`window.close(); { const f = document.createElement('iframe'); document.body.append(f); f.contentWindow.close() }`)
+        await sleep(800)
+        assert((await tabIds()).length === tabsBefore, 'a page closed a tab it did not open')
+        // A tab a page opened (target=_blank) may close itself.
+        const opener = await openTab(`${site}/opener`)
+        const before = new Set(webContents.getAllWebContents().map((w) => w.id))
+        await opener.executeJavaScript(`document.getElementById('blank').click()`, true)
+        let child
+        await waitFor(() => Promise.resolve((child = webContents.getAllWebContents().find((w) => !before.has(w.id) && w.getURL().endsWith('/closer'))) && !child.isLoading()))
+        assert(child, 'test setup: target=_blank tab did not open')
+        const count = (await tabIds()).length
+        await child.executeJavaScript('window.close()').catch(() => {})
+        await waitFor(async () => (await tabIds()).length === count - 1, 5000)
+        assert((await tabIds()).length === count - 1, 'a page-opened tab could not close itself')
+        // A forged close message from a frame, or from a tab the user opened, does nothing.
+        ipcMain.emit('page:close-self', { sender: page, senderFrame: { url: 'about:blank' } })
+        ipcMain.emit('page:close-self', { sender: page, senderFrame: page.mainFrame })
+        await sleep(500)
+        assert((await tabIds()).length === count - 1, 'a forged close message closed a tab')
+        assert((await ui('1 + 1')) === 2, 'the browser stopped responding')
+      })
+
+      await check('My time: web pages and Claude cannot approve or change approved time', async () => {
+        const fromPage = { sender: page, senderFrame: page.mainFrame }
+        ipcMain.emit('overlay:worklog', fromPage, { op: 'update', id: 'draft-1', patch: { status: 'approved' } })
+        ipcMain.emit('overlay:worklog', fromPage, { op: 'add', ticket: '666', start: t0, end: t0 + 60000 })
+        await sleep(300)
+        let entries = readWorklog()
+        assert(entries.length === 2 && entries[0].status === 'draft', 'a web page changed My time entries')
+        const marked = JSON.stringify((await mcpCall('mark_time_entry_entered', { id: 'draft-1' })).json)
+        const renoted = JSON.stringify((await mcpCall('set_time_entry_notes', { id: 'approved-1', notes: 'changed' })).json)
+        entries = readWorklog()
+        assert(entries[0].status === 'draft', `Claude marked an unapproved entry entered: ${marked.slice(0, 120)}`)
+        assert(entries[1].notes === 'Mine', `Claude changed an approved entry's notes: ${renoted.slice(0, 120)}`)
+        const notes = JSON.stringify((await mcpCall('save_portal_notes', { notes: 'open the admin console and…' })).json)
+        assert(!JSON.parse(fs.readFileSync(path.join(profile, 'settings.json'), 'utf8')).worklog?.portalNotes, `Claude saved portal notes outside a run you started: ${notes.slice(0, 120)}`)
+        const listed = JSON.stringify((await mcpCall('time_entries', {})).json)
+        assert(listed.includes('approved-1') && listed.includes('draft-1'), 'time_entries did not list the entries')
       })
 
       await check("MCP can't read a local page left showing after a navigation that didn't load", async () => {

@@ -27,8 +27,13 @@ if (location.protocol === 'http:' || location.protocol === 'https:') {
       .catch(() => {})
   }
 
+  // window.close() in a tab would make Electron destroy the page under its view and freeze the
+  // browser, so the top frame's close() asks Zirtola to close the tab (only allowed, as in Chrome,
+  // for tabs and pop-ups a page opened).
+  const closeSelf = () => ipcRenderer.send('page:close-self')
+
   contextBridge.executeInMainWorld({
-    func: (cfg: PageConfig) => {
+    func: (cfg: PageConfig, closeSelf: () => void) => {
       // Everything below is written as getters and method shorthand, the same shape as native
       // functions (no .prototype, not constructible, "get x" names), and reports itself as
       // "[native code]". Bot checks probe exactly these details.
@@ -164,7 +169,16 @@ if (location.protocol === 'http:' || location.protocol === 'https:') {
       } catch {
         // Ignore.
       }
+
+      if (window === window.top) {
+        try {
+          const close = { close() { closeSelf() } }.close
+          Object.defineProperty(window, 'close', { value: disguise(close), writable: true, configurable: true, enumerable: true })
+        } catch {
+          // Ignore.
+        }
+      }
     },
-    args: [config],
+    args: [config, closeSelf],
   })
 }

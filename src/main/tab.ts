@@ -49,6 +49,8 @@ export class Tab {
   blockedCount = 0
   /** When you last clicked, tapped or typed in this page (so actions can tell yours from a script's). */
   lastUserInputAt = 0
+  /** Opened by a page (window.open, target=_blank), so the page may close it again (window.close()). */
+  openedByPage = false
 
   private savedHistory: { entries: NavigationEntry[]; index: number } | null = null
 

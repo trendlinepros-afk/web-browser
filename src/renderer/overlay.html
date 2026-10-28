@@ -53,6 +53,31 @@
         <button id="chat-send" type="submit" aria-label="Send"></button>
       </form>
     </section>
+    <section id="worklog" hidden aria-label="My time">
+      <header>
+        <span class="mark" aria-hidden="true"></span>
+        <div class="title">My time</div>
+        <div class="day-nav">
+          <button id="wl-prev" class="icon" type="button" title="Previous day" aria-label="Previous day"></button>
+          <span id="wl-day"></span>
+          <button id="wl-next" class="icon" type="button" title="Next day" aria-label="Next day"></button>
+        </div>
+        <span id="wl-total" class="where"></span>
+        <button id="wl-settings" class="icon" type="button" title="Time tracking settings" aria-label="Time tracking settings"></button>
+        <button id="wl-close" class="icon" type="button" title="Close (Esc)" aria-label="Close"></button>
+      </header>
+      <div id="wl-off" class="wl-banner" hidden>
+        <span>Time tracking is off. Turn it on and Zirtola notes how long you spend on each ConnectWise ticket.</span>
+        <button id="wl-setup" class="btn primary" type="button">Set up</button>
+      </div>
+      <div id="wl-list"></div>
+      <footer>
+        <button id="wl-add" class="btn" type="button">Add entry</button>
+        <span class="spacer"></span>
+        <button id="wl-draft" class="btn" type="button" title="Claude reads each ticket and suggests notes for entries that have none. You review them before approving.">Draft notes with Claude</button>
+        <button id="wl-enter" class="btn primary" type="button">Enter approved in ConnectWise</button>
+      </footer>
+    </section>
     <script type="module" src="overlay.js"></script>
   </body>
 </html>

@@ -38,6 +38,11 @@ export function applyCommandLineHardening(): void {
 }
 
 let ipcRegistered = false
+/** Closes the tab or pop-up window showing this page, if a page opened it (set by browser.ts). */
+let closeSelf: ((wc: Electron.WebContents) => void) | null = null
+export function setCloseSelfHandler(handler: (wc: Electron.WebContents) => void): void {
+  closeSelf = handler
+}
 const LOCAL_READS = new Set(['xhr', 'subFrame', 'object', 'webSocket', 'ping', 'cspReport', 'other'])
 
 /**
@@ -57,6 +62,10 @@ export function configureNetwork(ses: Session, blocker: AdBlocker): void {
         undecidedPermissions: undecidedPermissions(event.sender.session, origin),
         reportUaData: needsLearning(),
       }
+    })
+    ipcMain.on('page:close-self', (event) => {
+      if (event.senderFrame !== event.sender.mainFrame) return
+      closeSelf?.(event.sender)
     })
     ipcMain.on('privacy:ua-data', (event, values: Record<string, unknown>) => {
       // Only from a web page's own top frame (the preload only sends from there).

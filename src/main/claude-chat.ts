@@ -16,7 +16,9 @@ import { flushSettings } from './settings'
  */
 
 const SYSTEM_PROMPT = `You are Claude, chatting with the user in a small panel inside their Zirtola web browser.
-You can see and use their browser with the zirtola tools (list_tabs, open_tab, navigate, read_page, snapshot, click, type, press_key, scroll, screenshot, wait_for).
+You can see and use their browser with the zirtola tools (list_tabs, open_tab, navigate, read_page, snapshot, click, type, select_option, press_key, handle_dialog, scroll, screenshot, wait_for).
+Pop-up windows a page opens while you work appear as new tabs (the tool result tells you the tab id); answer dialogs with handle_dialog.
+For the user's ConnectWise time, use time_entries, set_time_entry_notes, mark_time_entry_entered and save_portal_notes.
 Each message starts with a note saying which tab the user is looking at; "this page" or "here" means that tab.
 Prefer acting in the current tab unless the user asks for a new one. Read the page before answering questions about it.
 Ask before anything that spends money, sends a message or email, posts publicly, or deletes something.
@@ -37,6 +39,12 @@ const TOOL_LABELS: Record<string, (i: Record<string, unknown>) => string> = {
   scroll: () => 'Scrolling',
   wait_for: () => 'Waiting for the page',
   evaluate: () => 'Running a script on the page',
+  select_option: (i) => `Choosing “${short(i.option)}”`,
+  handle_dialog: (i) => (i.accept ? 'Confirming a dialog' : 'Dismissing a dialog'),
+  time_entries: () => 'Reading your time entries',
+  set_time_entry_notes: () => 'Writing notes for a time entry',
+  mark_time_entry_entered: () => 'Marking a time entry as entered',
+  save_portal_notes: () => 'Saving notes for next time',
 }
 
 /** Sign-in problems get a plain explanation and a "Sign in to Claude" button. */

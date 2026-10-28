@@ -151,6 +151,9 @@ export class BrowserWindowController {
   /** Adopts a WebContents created by Chromium for window.open/target=_blank, preserving window.opener. */
   adoptTab(webContentsOptions: Electron.WebContentsViewConstructorOptions, opener: Tab, background: boolean): Tab {
     const tab = new Tab(this, this.session, { webContentsOptions })
+    tab.openedByPage = true
+    // A page Claude opened while working is Claude's to continue in.
+    if (opener.controlled) tab.lastControlledAt = Date.now()
     const index = this.tabs.indexOf(opener) + 1
     this.insertTab(tab, index > 0 ? index : undefined, background)
     return tab
@@ -401,7 +404,10 @@ export class BrowserWindowController {
   }
 
   handleWindowOpen(opener: Tab, details: HandlerDetails): WindowOpenHandlerResponse {
-    if (details.disposition === 'foreground-tab' || details.disposition === 'background-tab') {
+    // While Claude is working in a tab, its pop-ups (e.g. a time-entry window) open as tabs next to it:
+    // Claude only works in tabs. window.opener still works, and a pop-up that closes itself closes the tab.
+    const asTab = opener.controlled && details.disposition === 'new-window' && opener.window === this
+    if (asTab || details.disposition === 'foreground-tab' || details.disposition === 'background-tab') {
       return {
         action: 'allow',
         createWindow: (options) => {

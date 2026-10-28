@@ -881,3 +881,217 @@ button.icon:focus-visible {
   display: block;
   margin-top: 8px;
 }
+
+/* ---- My time ---------------------------------------------------------------------- */
+
+#worklog {
+  position: fixed;
+  left: 50%;
+  top: 56px;
+  transform: translateX(-50%);
+  width: min(860px, calc(100vw - 24px));
+  max-height: calc(100vh - 80px);
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  border-radius: 18px;
+  border: 1px solid transparent;
+  background:
+    linear-gradient(var(--sheet-bg), var(--sheet-bg)) padding-box,
+    var(--grad) border-box;
+  box-shadow: var(--shadow), 0 0 40px rgba(106, 92, 255, 0.18);
+  overflow: hidden;
+  animation: drop 160ms cubic-bezier(0.2, 0.9, 0.3, 1);
+}
+#worklog header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 10px 10px 16px;
+  border-bottom: 1px solid var(--line);
+}
+#worklog header .mark {
+  width: 18px;
+  height: 18px;
+  border-radius: 6px;
+  background: var(--grad);
+  box-shadow: 0 0 14px rgba(106, 92, 255, 0.45);
+}
+#worklog header .title {
+  font: 600 15px var(--font-display);
+}
+#worklog .day-nav {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  margin-left: 10px;
+}
+#wl-day {
+  min-width: 96px;
+  text-align: center;
+  font-weight: 600;
+}
+#worklog .where {
+  flex: 1;
+  color: var(--muted);
+  font-size: 12px;
+}
+#worklog button.icon:disabled {
+  opacity: 0.35;
+  pointer-events: none;
+}
+.wl-banner {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 12px 16px 0;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: var(--hover);
+  color: var(--muted);
+}
+.wl-banner span {
+  flex: 1;
+}
+#wl-list {
+  overflow-y: auto;
+  padding: 10px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.wl-empty {
+  margin: 24px 0;
+  text-align: center;
+  color: var(--muted);
+}
+.wl-row {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.wl-row.approved {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+}
+.wl-row.entered {
+  opacity: 0.6;
+}
+.wl-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.wl-ok {
+  width: 17px;
+  height: 17px;
+  accent-color: var(--accent);
+  flex: none;
+}
+.wl-row input.wl-ticket,
+.wl-row input.wl-time,
+.wl-notes {
+  border: 1px solid var(--line-strong);
+  border-radius: 8px;
+  background: var(--bg-elev);
+  color: var(--fg);
+  font: inherit;
+  padding: 4px 7px;
+}
+.wl-row input.wl-ticket {
+  width: 84px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.wl-row input.wl-time {
+  width: 108px;
+  font-variant-numeric: tabular-nums;
+}
+.wl-row input:disabled,
+.wl-notes:disabled {
+  border-color: transparent;
+  background: transparent;
+}
+.wl-summary {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--muted);
+}
+.wl-dash {
+  color: var(--muted);
+}
+.wl-hours {
+  width: 58px;
+  text-align: right;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.wl-chip {
+  flex: none;
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-size: 11.5px;
+  background: var(--hover);
+  color: var(--muted);
+}
+.wl-row.approved .wl-chip {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+}
+.wl-row.entered .wl-chip {
+  background: color-mix(in srgb, var(--ok) 16%, transparent);
+  color: var(--ok);
+}
+.wl-chip.short {
+  color: var(--danger);
+}
+.wl-notes {
+  resize: none;
+  min-height: 30px;
+  line-height: 1.4;
+  user-select: text;
+}
+.wl-row input:focus,
+.wl-notes:focus {
+  outline: 2px solid var(--accent);
+  outline-offset: -1px;
+}
+.wl-error {
+  color: var(--danger);
+  font-size: 12px;
+}
+#worklog footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px 14px;
+  border-top: 1px solid var(--line);
+}
+#worklog footer .spacer {
+  flex: 1;
+}
+#worklog footer .btn:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+@media (max-width: 640px) {
+  .wl-summary {
+    display: none;
+  }
+}
+.text-input.multiline {
+  flex: 1 1 360px;
+  height: auto;
+  min-height: 96px;
+  padding: 8px 10px;
+  line-height: 1.4;
+  resize: vertical;
+}
+.wl-chip.claude {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+}

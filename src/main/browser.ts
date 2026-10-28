@@ -9,12 +9,13 @@ import { configureSession } from './permissions'
 import { toNavigableURL } from './url'
 import type { ExtensionApis } from './extension-apis'
 import { AdBlocker } from './blocker'
-import { configureNetwork } from './privacy'
+import { configureNetwork, setCloseSelfHandler } from './privacy'
 import { BookmarkStore } from './bookmarks'
 import { onThemeChanged } from './theme'
 import { showChromiumInfo } from './chromium-status'
 import { checkForUpdates } from './updater'
 import { TorrentSender } from './torrents'
+import { Worklog } from './worklog'
 
 interface SavedSession {
   version: 1
@@ -28,6 +29,7 @@ export class Browser {
   readonly blocker = new AdBlocker()
   readonly bookmarks = new BookmarkStore()
   readonly torrents = new TorrentSender(this)
+  readonly worklog = new Worklog(this)
   private bookmarksSent = -1
   private tabsByWebContents = new WeakMap<WebContents, Tab>()
   extensions: ElectronChromeExtensions | null = null
@@ -60,6 +62,16 @@ export class Browser {
     configureSession(this.profile, this)
     this.torrents.attach(this.profile)
     configureNetwork(this.profile, this.blocker)
+    setCloseSelfHandler((wc) => {
+      const tab = this.findTabByWebContents(wc)
+      if (tab) {
+        if (tab.openedByPage && tab.window.tabs.includes(tab)) setImmediate(() => tab.window.closeTab(tab))
+        return
+      }
+      // A pop-up window (sign-in windows and the like) closes as usual; browser windows never do.
+      const win = BrowserWindow.fromWebContents(wc)
+      if (win && !this.windows.has(win.id) && win.webContents === wc) win.close()
+    })
     this.blocker.onBlocked = (wc) => {
       const tab = this.tabsByWebContents.get(wc)
       if (!tab) return
@@ -300,6 +312,7 @@ export class Browser {
           return this.onOpenChat?.(w, Number(args[0]), Number(args[1]))
         case 'toastAction':
           if (args[0] === 'torrent-settings') this.torrents.openSetup?.(w)
+          else if (args[0] === 'worklog') this.onOpenWorklog?.(w)
           return
         case 'showChromiumInfo':
           return void showChromiumInfo((spec) => w.popup.prompt(spec), () => checkForUpdates({ interactive: true }))
@@ -315,6 +328,7 @@ export class Browser {
   onShowTabMenu: ((w: BrowserWindowController, tab: Tab, x: number, y: number) => void) | null = null
   onShowGroupMenu: ((w: BrowserWindowController, groupId: number, x: number, y: number) => void) | null = null
   onOpenChat: ((w: BrowserWindowController, x: number, y: number) => void) | null = null
+  onOpenWorklog: ((w: BrowserWindowController) => void) | null = null
   /** Zirtola's own chrome.* additions for extensions (set up with extension support). */
   extensionApis: ExtensionApis | null = null
   onShowShieldMenu: ((w: BrowserWindowController, x: number, y: number) => void) | null = null

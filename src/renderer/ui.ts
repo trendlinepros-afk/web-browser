@@ -101,7 +101,7 @@ api.onToast((t) => {
   toastText.textContent = t.text
   toastEl.title = t.text
   toastBtn.hidden = !t.action
-  toastBtn.textContent = 'Settings'
+  toastBtn.textContent = t.action === 'worklog' ? 'Review' : 'Settings'
   toastBtn.onclick = () => {
     if (t.action) api.toastAction(t.action)
     toastEl.hidden = true

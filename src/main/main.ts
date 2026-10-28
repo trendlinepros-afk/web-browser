@@ -105,6 +105,7 @@ function main(): void {
       return w && !w.win.isDestroyed() ? (spec) => w.popup.prompt(spec) : null
     })
     startBackgroundUpdateChecks(() => getSettings().checkForUpdatesOnStartup)
+    browser.worklog.sync()
     startChromiumStatus(() => {
       for (const w of browser?.windows.values() ?? []) w.pushState()
     })

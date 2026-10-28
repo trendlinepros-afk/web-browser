@@ -1,6 +1,6 @@
 import { ipcMain, Menu, MenuItem, nativeImage, WebContentsView, type MenuItemConstructorOptions, type WebContents } from 'electron'
 import path from 'node:path'
-import type { ChatState, PopupItem, PopupModifiers, PromptSpec, SettingsModel } from '../shared/types'
+import type { ChatState, PopupItem, PopupModifiers, PromptSpec, SettingsModel, WorklogEntry, WorklogModel, WorklogOp } from '../shared/types'
 import type { BrowserWindowController } from './window'
 import { integratedTitleBar, uiPlatform } from './theme'
 import { denyWindowOpen } from './hardening'
@@ -49,7 +49,7 @@ export class PopupHost {
 
   private handlers = new Map<number, Handler>()
   private nextId = 1
-  private openKind: 'menu' | 'settings' | 'prompt' | 'chat' | null = null
+  private openKind: 'menu' | 'settings' | 'prompt' | 'chat' | 'worklog' | null = null
   private pendingPrompt: { spec: PromptSpec; resolve: (index: number) => void } | null = null
   private promptQueue: { spec: PromptSpec; resolve: (index: number) => void }[] = []
   private restoreFocus: WebContents | null = null
@@ -57,6 +57,8 @@ export class PopupHost {
   onAction: ((name: string) => void) | null = null
   /** Chat panel: 'send' (with text), 'stop' or 'new'. */
   onChat: ((op: 'send' | 'stop' | 'new' | 'login', text?: string) => void) | null = null
+  /** My Time panel changes (already checked to be well-formed). */
+  onWorklog: ((op: WorklogOp) => void) | null = null
 
   constructor(private readonly w: BrowserWindowController) {}
 
@@ -68,6 +70,10 @@ export class PopupHost {
     ipcMain.on('overlay:action', (e, name: string) => host(e)?.onAction?.(name))
     ipcMain.on('overlay:answer', (e, index: number) => host(e)?.answer(index))
     ipcMain.on('overlay:chat', (e, op: 'send' | 'stop' | 'new' | 'login', text?: string) => host(e)?.onChat?.(op, typeof text === 'string' ? text : undefined))
+    ipcMain.on('overlay:worklog', (e, op: unknown) => {
+      const valid = validWorklogOp(op)
+      if (valid) host(e)?.onWorklog?.(valid)
+    })
   }
 
   get isOpen(): boolean {
@@ -97,7 +103,7 @@ export class PopupHost {
     return PopupHost.loaded
   }
 
-  private async open(kind: 'menu' | 'settings' | 'prompt' | 'chat', channel: string, payload: object): Promise<void> {
+  private async open(kind: 'menu' | 'settings' | 'prompt' | 'chat' | 'worklog', channel: string, payload: object): Promise<void> {
     await PopupHost.ensure()
     const view = PopupHost.view!
     const win = this.w.win
@@ -156,6 +162,19 @@ export class PopupHost {
   /** The Claude chat panel, dropping down from (x, y): the right edge and bottom of the Claude button. */
   chat(state: ChatState, x: number, y: number): void {
     void this.open('chat', 'overlay:show-chat', { state, x: Math.round(x), y: Math.round(y) })
+  }
+
+  /** The My Time panel (time entries for one day). */
+  worklog(model: WorklogModel): void {
+    void this.open('worklog', 'overlay:show-worklog', model)
+  }
+
+  updateWorklog(model: WorklogModel): void {
+    if (this.openKind === 'worklog' && PopupHost.current === this) PopupHost.view?.webContents.send('overlay:update-worklog', model)
+  }
+
+  get worklogOpen(): boolean {
+    return this.openKind === 'worklog' && PopupHost.current === this
   }
 
   updateChat(state: ChatState): void {
@@ -297,5 +316,55 @@ function iconDataUrl(icon: unknown): string | undefined {
     return img.isEmpty() ? undefined : img.resize({ width: 32, height: 32 }).toDataURL()
   } catch {
     return undefined
+  }
+}
+
+const STATUSES = new Set(['draft', 'approved', 'entered', 'skipped'])
+const isTime = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v) && v > 1e12 && v < 1e13
+const isTicket = (v: unknown): v is string => typeof v === 'string' && /^\d{1,12}$/.test(v)
+
+/** The overlay is Zirtola's own page, but its messages are still checked field by field. */
+function validWorklogOp(raw: unknown): WorklogOp | null {
+  if (!raw || typeof raw !== 'object') return null
+  const o = raw as Record<string, unknown>
+  switch (o.op) {
+    case 'day':
+      return typeof o.day === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(o.day) ? { op: 'day', day: o.day } : null
+    case 'remove':
+      return typeof o.id === 'string' ? { op: 'remove', id: o.id } : null
+    case 'add':
+      return isTicket(o.ticket) && isTime(o.start) && isTime(o.end) && o.end > o.start ? { op: 'add', ticket: o.ticket, start: o.start, end: o.end } : null
+    case 'update': {
+      if (typeof o.id !== 'string' || !o.patch || typeof o.patch !== 'object') return null
+      const p = o.patch as Record<string, unknown>
+      const patch: Extract<WorklogOp, { op: 'update' }>['patch'] = {}
+      if (p.ticket !== undefined) {
+        if (!isTicket(p.ticket)) return null
+        patch.ticket = p.ticket
+      }
+      if (p.start !== undefined) {
+        if (!isTime(p.start)) return null
+        patch.start = p.start
+      }
+      if (p.end !== undefined) {
+        if (!isTime(p.end)) return null
+        patch.end = p.end
+      }
+      if (p.notes !== undefined) {
+        if (typeof p.notes !== 'string') return null
+        patch.notes = p.notes.slice(0, 4000)
+      }
+      if (p.status !== undefined) {
+        if (typeof p.status !== 'string' || !STATUSES.has(p.status)) return null
+        patch.status = p.status as WorklogEntry['status']
+      }
+      return { op: 'update', id: o.id, patch }
+    }
+    case 'enter':
+    case 'draft-notes':
+    case 'settings':
+      return { op: o.op }
+    default:
+      return null
   }
 }

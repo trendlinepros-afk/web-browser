@@ -72,8 +72,54 @@ export interface ToastSpec {
   kind: 'busy' | 'ok' | 'error'
   text: string
   /** A button on the toast. */
-  action?: 'torrent-settings'
+  action?: 'torrent-settings' | 'worklog'
 }
+
+/** One time entry in My Time (src/main/worklog.ts). Times are epoch milliseconds. */
+export interface WorklogEntry {
+  id: string
+  /** ConnectWise ticket number. */
+  ticket: string
+  summary: string
+  start: number
+  end: number
+  /** Seconds you were actually active on the ticket. */
+  seconds: number
+  notes: string
+  /** draft → approved (by you) → entered (by Claude, in ConnectWise); skipped = not to be entered. */
+  status: 'draft' | 'approved' | 'entered' | 'skipped'
+  /** Added by hand rather than tracked. */
+  manual?: boolean
+  /** You set the start/end yourself: used exactly as given, never rounded or moved. */
+  timesSet?: boolean
+  /** The notes were suggested by Claude and you haven't edited them yet. */
+  notesByClaude?: boolean
+}
+
+/** An entry as shown and entered: its rounded time slot, laid out so entries never overlap. */
+export interface WorklogSlotted extends WorklogEntry {
+  slotStart: number
+  slotEnd: number
+}
+
+export interface WorklogModel {
+  /** YYYY-MM-DD shown. */
+  day: string
+  today: string
+  enabled: boolean
+  roundMinutes: number
+  entries: WorklogSlotted[]
+}
+
+/** Changes from the My Time panel. */
+export type WorklogOp =
+  | { op: 'day'; day: string }
+  | { op: 'update'; id: string; patch: { ticket?: string; start?: number; end?: number; notes?: string; status?: WorklogEntry['status'] } }
+  | { op: 'add'; ticket: string; start: number; end: number }
+  | { op: 'remove'; id: string }
+  | { op: 'enter' }
+  | { op: 'draft-notes' }
+  | { op: 'settings' }
 
 /** The Chromium tag in the tab strip (see src/main/chromium-status.ts). */
 export interface ChromiumStatus {
@@ -192,7 +238,7 @@ export type SettingsControl =
   | { kind: 'select'; key: string; label: string; description?: string; value: string; options: { value: string; label: string }[] }
   | { kind: 'button'; action: string; label: string; description?: string; style?: 'primary' | 'danger' }
   | { kind: 'info'; label: string; value: string }
-  | { kind: 'text'; key: string; label: string; description?: string; value: string; placeholder?: string; secret?: boolean }
+  | { kind: 'text'; key: string; label: string; description?: string; value: string; placeholder?: string; secret?: boolean; multiline?: boolean }
 
 export interface SettingsSection {
   id: string

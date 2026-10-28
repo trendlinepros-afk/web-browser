@@ -30,6 +30,25 @@ export interface Settings {
     /** Send the Global Privacy Control signal (Sec-GPC: 1), a legal "do not sell/share" request in some regions. */
     globalPrivacyControl: boolean
   }
+  /** My Time: tracking time on ConnectWise tickets and entering it with Claude (worklog.ts). */
+  worklog: {
+    enabled: boolean
+    /** ConnectWise address, e.g. na.myconnectwise.net; empty recognizes ConnectWise hosts automatically. */
+    portal: string
+    /** Entries are rounded to this many minutes. */
+    roundMinutes: number
+    /** Time away from the computer longer than this isn't counted. */
+    idleMinutes: number
+    /** "HH:MM" for a daily reminder to review and enter time; empty for none. */
+    reminder: string
+    /** Used when ConnectWise asks for a work type. */
+    workType: string
+    billable: boolean
+    /** What Claude learned about entering time in this ConnectWise (shown and editable in Settings). */
+    portalNotes: string
+    /** You checked the notes (or wrote them): only then are they passed to Claude again. */
+    portalNotesConfirmed: boolean
+  }
   /** Sending magnet and .torrent links to a Deluge server (deluge.ts, torrents.ts). */
   torrents: {
     /** Catch magnet and .torrent links and send them to Deluge instead. */
@@ -73,6 +92,17 @@ const DEFAULTS: Settings = {
   privacy: {
     globalPrivacyControl: true,
   },
+  worklog: {
+    enabled: false,
+    portal: '',
+    roundMinutes: 15,
+    idleMinutes: 5,
+    reminder: '17:00',
+    workType: '',
+    billable: true,
+    portalNotes: '',
+    portalNotesConfirmed: false,
+  },
   torrents: {
     enabled: false,
     url: '',
@@ -115,6 +145,7 @@ export function getSettings(): Settings {
     ...stored,
     blocking: { ...DEFAULTS.blocking, ...(stored.blocking ?? {}) },
     privacy: { ...DEFAULTS.privacy, ...(stored.privacy ?? {}) },
+    worklog: { ...DEFAULTS.worklog, ...(stored.worklog ?? {}) },
     torrents: { ...DEFAULTS.torrents, ...(stored.torrents ?? {}) },
     mcp: { ...DEFAULTS.mcp, ...(stored.mcp ?? {}) },
   }

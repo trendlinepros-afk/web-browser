@@ -201,6 +201,26 @@ Claude Desktop connects through `npx mcp-remote` with the same URL and header (s
   adds a "Security update" line when Electron changed since the previous release). When that's newer than the
   running Electron, the update is downloaded without asking, then **Security update ready → Restart now / Later**;
   after Later it's asked again every 4 hours until the browser restarts (it also installs on quit).
+- **My Time** (`worklog.ts`, My time panel in the overlay, Settings → My Time): time tracking for ConnectWise
+  tickets without the ConnectWise API. Every 15 s, if the focused window's active tab is on the ConnectWise site
+  (the address in Settings, or myconnectwise.net / connectwisedev.com when empty), not incognito, not being driven by
+  Claude, and you've been active within the idle limit, the time goes to that ticket. The ticket number comes from
+  the URL (service_recid, recid…), the title ("Service Ticket #123 - …"), or the ticket header on the page (read
+  in an isolated world, same-site frames included). Returning to a ticket within 10 min continues its entry.
+  Entries are rounded (default 15 min) into back-to-back slots that never overlap; times you set yourself are kept
+  exactly. Stored per day in `userData/worklog/` (0600, 60 days). The panel (⚙ → My time, or the daily reminder
+  toast) edits, adds, deletes and **approves** entries. **Enter approved in ConnectWise** and **Draft notes with
+  Claude** open the Claude chat with a generated request; Claude uses the browser plus the MCP tools
+  `time_entries`, `set_time_entry_notes` (drafts only, shown as "Check Claude's notes"), `mark_time_entry_entered`
+  (approved → entered) and `save_portal_notes`. Those three write tools only work during the job you started from the
+  panel (45 min). Notes Claude saves about the portal are used again only after you confirm them in Settings, and
+  then as quoted data. Claude can never approve entries or change approved ones.
+- **Claude's browser tools** work in same-site iframes (snapshot, read, click, type, wait), list cross-site frames,
+  pick `<select>` options (`select_option`), answer alert/confirm/prompt dialogs (`handle_dialog`, via a DevTools
+  protocol watcher attached only while Claude works in the tab, `dialogs.ts`), and pop-ups a page opens while Claude
+  works in it open as tabs (tool results name the new tab, and say when a page closed itself).
+- `window.close()` in a tab's top frame is routed to Zirtola (`page:close-self`): Electron destroying a tab's page
+  under its view froze the whole browser. Like Chrome, only tabs and pop-ups a page opened can close themselves.
 - **Magnet Torrent** (built into the browser, not an extension; `deluge.ts`, `torrents.ts`), like the old *Deluge Siphon* extension: with
   Settings → Magnet Torrent pointed at a Deluge Web UI (e.g. `http://unraid:8112`), clicking a magnet link
   or a .torrent download sends it to Deluge over its JSON-RPC API (`auth.login`, auto-connects the Web UI
@@ -424,6 +444,6 @@ and `runtime` messaging all work.
   latest three) still need a person to test them; the workflow opens a GitHub issue when one is out.
 - `adm-zip` (used by electron-chrome-web-store to unpack extension packages) is forced to ≥0.6.1 via `overrides`:
   older versions let a crafted package write outside its folder (symlinks, `../`) or exhaust memory. Verified
-  with a crafted zip; `npm audit --omit=dev` is clean.
+  with a crafted zip; `npm audit --omit=dev` is clean (re-checked 2026-10-28 after `npm audit fix`).
 - Ad blocking never touches requests made by extensions, so password managers keep working, or top-level
   navigations, so you can always open the page you asked for.
