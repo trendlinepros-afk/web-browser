@@ -54,6 +54,7 @@ jobs:
       matrix:
         os: [windows-latest, macos-latest, ubuntu-latest]
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
         with:
@@ -95,11 +96,22 @@ jobs:
       # sandbox setting, which is what the shipped app uses).
       - run: xvfb-run -a npx electron --no-sandbox scripts/security-check
 
+  # Published once the security checks pass and the Windows and Linux builds are uploaded, even if the
+  # macOS build failed or GitHub had no macOS machine (that happens): a macOS outage mustn't hold back
+  # updates for Windows. macOS copies then get the next release.
   publish:
     needs: [draft, build, security]
+    if: ${{ always() && needs.draft.result == 'success' && needs.security.result == 'success' }}
     runs-on: ubuntu-latest
     steps:
       - name: Publish the release (makes it visible to "Check for updates")
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release edit "v${{ needs.draft.outputs.version }}" --draft=false --latest --repo "$GITHUB_REPOSITORY"
+        run: |
+          tag="v${{ needs.draft.outputs.version }}"
+          assets=$(gh release view "$tag" --json assets -q '.assets[].name' --repo "$GITHUB_REPOSITORY")
+          for required in latest.yml latest-linux.yml; do
+            echo "$assets" | grep -qx "$required" || { echo "::error::$required is missing: the Windows or Linux build didn't finish"; exit 1; }
+          done
+          echo "$assets" | grep -qx latest-mac.yml || echo "::warning::No macOS build in this release (macOS copies update with the next one)."
+          gh release edit "$tag" --draft=false --latest --repo "$GITHUB_REPOSITORY"
