@@ -445,9 +445,13 @@ and `runtime` messaging all work.
 - Updates download over HTTPS from GitHub Releases. `electron-updater` checks the SHA-512 from `latest.yml`.
 - Chromium security fixes arrive through Electron releases, and shipping them promptly is the most important
   ongoing security task. `.github/workflows/electron-security.yml` does it every 3 hours without anyone merging anything:
-  it updates Electron within the current major, type-checks, builds, runs `npm run bench`, and only if all pass
-  commits to main and starts a release. New major versions (new Chromium every ~8 weeks; Electron supports the
-  latest three) still need a person to test them; the workflow opens a GitHub issue when one is out.
+  it updates Electron within the current major, type-checks, builds, runs `npm run bench` and the security checks,
+  and only if all pass commits to main and starts a release. A new major version (new Chromium every ~8 weeks;
+  Electron supports the latest three) goes the same way once its x.0.0 has been out 14 days; the library patches
+  (`patch-deps.js`) must still apply too. While a newer major isn't installed, the workflow keeps a GitHub issue
+  open, so a major that fails a check gets a person's attention. Electron 45 (Chromium 156) was taken by hand
+  on 2026-11-04 after the full test pass (security checks, bench, extensions with the sandbox on, MCP/ConnectWise
+  flow, PDF viewer).
 - `adm-zip` (used by electron-chrome-web-store to unpack extension packages) is forced to ≥0.6.1 via `overrides`:
   older versions let a crafted package write outside its folder (symlinks, `../`) or exhaust memory. Verified
   with a crafted zip; `npm audit --omit=dev` is clean (re-checked 2026-10-28 after `npm audit fix`).

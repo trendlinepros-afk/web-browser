@@ -99,7 +99,7 @@ export async function showChromiumInfo(
   const lines: Record<ChromiumStatus['state'], string> = {
     latest: 'This is the newest Chromium available for Zirtola.',
     patch: `A Chromium security patch is out (Electron ${s.electronLatest}). Zirtola picks it up on its own, usually within a day, and it arrives through Check for updates.`,
-    major: `A newer Chromium is out (Electron ${s.electronLatest}). Big Chromium upgrades are tested before they ship, so ask Claude to "update Chromium" when you want it.`,
+    major: `A newer Chromium is out (Electron ${s.electronLatest}). Big Chromium upgrades arrive automatically about two weeks after release, once they pass Zirtola's speed and security checks.`,
     unknown: "Couldn't check for newer versions (offline?).",
     checking: 'Checking for newer versions…',
   }
